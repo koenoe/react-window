@@ -3,7 +3,6 @@
 import memoizeOne from 'memoize-one';
 import { createElement, PureComponent } from 'react';
 import { cancelTimeout, requestTimeout } from './timer';
-import { getRTLOffsetType } from './domHelpers';
 
 import type { TimeoutID } from './timer';
 
@@ -159,6 +158,7 @@ export default function createListComponent({
   return class List<T> extends PureComponent<Props<T>, State> {
     _instanceProps: any = initInstanceProps(this.props, this);
     _outerRef: ?HTMLDivElement;
+    _innerRef: ?HTMLDivElement;
     _resetIsScrollingTimeoutId: TimeoutID | null = null;
 
     static defaultProps = {
@@ -232,13 +232,13 @@ export default function createListComponent({
     componentDidMount() {
       const { direction, initialScrollOffset, layout } = this.props;
 
-      if (typeof initialScrollOffset === 'number' && this._outerRef != null) {
-        const outerRef = ((this._outerRef: any): HTMLElement);
+      if (typeof initialScrollOffset === 'number' && this._innerRef != null) {
+        const innerRef = ((this._innerRef: any): HTMLElement);
         // TODO Deprecate direction "horizontal"
         if (direction === 'horizontal' || layout === 'horizontal') {
-          outerRef.scrollLeft = initialScrollOffset;
+          innerRef.style.transform = `translate3d(-${initialScrollOffset}px, 0, 0)`;
         } else {
-          outerRef.scrollTop = initialScrollOffset;
+          innerRef.style.transform = `translate3d(0, -${initialScrollOffset}px, 0)`;
         }
       }
 
@@ -249,32 +249,14 @@ export default function createListComponent({
       const { direction, layout } = this.props;
       const { scrollOffset, scrollUpdateWasRequested } = this.state;
 
-      if (scrollUpdateWasRequested && this._outerRef != null) {
-        const outerRef = ((this._outerRef: any): HTMLElement);
+      if (scrollUpdateWasRequested && this._innerRef != null) {
+        const innerRef = ((this._innerRef: any): HTMLElement);
 
         // TODO Deprecate direction "horizontal"
         if (direction === 'horizontal' || layout === 'horizontal') {
-          if (direction === 'rtl') {
-            // TRICKY According to the spec, scrollLeft should be negative for RTL aligned elements.
-            // This is not the case for all browsers though (e.g. Chrome reports values as positive, measured relative to the left).
-            // So we need to determine which browser behavior we're dealing with, and mimic it.
-            switch (getRTLOffsetType()) {
-              case 'negative':
-                outerRef.scrollLeft = -scrollOffset;
-                break;
-              case 'positive-ascending':
-                outerRef.scrollLeft = scrollOffset;
-                break;
-              default:
-                const { clientWidth, scrollWidth } = outerRef;
-                outerRef.scrollLeft = scrollWidth - clientWidth - scrollOffset;
-                break;
-            }
-          } else {
-            outerRef.scrollLeft = scrollOffset;
-          }
+          innerRef.style.transform = `translate3d(-${scrollOffset}px, 0, 0)`;
         } else {
-          outerRef.scrollTop = scrollOffset;
+          innerRef.style.transform = `translate3d(0, -${scrollOffset}px, 0)`;
         }
       }
 
@@ -293,7 +275,6 @@ export default function createListComponent({
         className,
         direction,
         height,
-        innerRef,
         innerElementType,
         innerTagName,
         itemCount,
@@ -350,7 +331,7 @@ export default function createListComponent({
             position: 'relative',
             height,
             width,
-            overflow: 'auto',
+            overflow: 'hidden',
             WebkitOverflowScrolling: 'touch',
             willChange: 'transform',
             direction,
@@ -359,11 +340,12 @@ export default function createListComponent({
         },
         createElement(innerElementType || innerTagName || 'div', {
           children: items,
-          ref: innerRef,
+          ref: this._innerRefSetter,
           style: {
             height: isHorizontal ? '100%' : estimatedTotalSize,
             pointerEvents: isScrolling ? 'none' : undefined,
             width: isHorizontal ? estimatedTotalSize : '100%',
+            willChange: 'transform',
           },
         })
       );
@@ -466,12 +448,11 @@ export default function createListComponent({
         const isHorizontal =
           direction === 'horizontal' || layout === 'horizontal';
 
-        const isRtl = direction === 'rtl';
         const offsetHorizontal = isHorizontal ? offset : 0;
         itemStyleCache[index] = style = {
           position: 'absolute',
-          left: isRtl ? undefined : offsetHorizontal,
-          right: isRtl ? offsetHorizontal : undefined,
+          left: offsetHorizontal,
+          right: undefined,
           top: !isHorizontal ? offset : 0,
           height: !isHorizontal ? size : '100%',
           width: isHorizontal ? size : '100%',
@@ -533,23 +514,7 @@ export default function createListComponent({
           return null;
         }
 
-        const { direction } = this.props;
-
         let scrollOffset = scrollLeft;
-        if (direction === 'rtl') {
-          // TRICKY According to the spec, scrollLeft should be negative for RTL aligned elements.
-          // This is not the case for all browsers though (e.g. Chrome reports values as positive, measured relative to the left).
-          // It's also easier for this component if we convert offsets to the same format as they would be in for ltr.
-          // So the simplest solution is to determine which browser behavior we're dealing with, and convert based on it.
-          switch (getRTLOffsetType()) {
-            case 'negative':
-              scrollOffset = -scrollLeft;
-              break;
-            case 'positive-descending':
-              scrollOffset = scrollWidth - clientWidth - scrollLeft;
-              break;
-          }
-        }
 
         // Prevent Safari's elastic scrolling from causing visual shaking when scrolling past bounds.
         scrollOffset = Math.max(
@@ -606,6 +571,22 @@ export default function createListComponent({
         outerRef.hasOwnProperty('current')
       ) {
         outerRef.current = ref;
+      }
+    };
+
+    _innerRefSetter = (ref: any): void => {
+      const { innerRef } = this.props;
+
+      this._innerRef = ((ref: any): HTMLDivElement);
+
+      if (typeof innerRef === 'function') {
+        innerRef(ref);
+      } else if (
+        innerRef != null &&
+        typeof innerRef === 'object' &&
+        innerRef.hasOwnProperty('current')
+      ) {
+        innerRef.current = ref;
       }
     };
 
