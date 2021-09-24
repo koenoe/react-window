@@ -1119,7 +1119,6 @@ function createListComponent(_ref) {
           var isHorizontal = direction === 'horizontal' || layout === 'horizontal';
           var offsetHorizontal = isHorizontal ? _offset : 0;
           itemStyleCache[index] = style = {
-            position: 'absolute',
             left: offsetHorizontal,
             right: undefined,
             top: !isHorizontal ? _offset : 0,
@@ -1276,9 +1275,9 @@ function createListComponent(_ref) {
         var innerRef = this._innerRef; // TODO Deprecate direction "horizontal"
 
         if (direction === 'horizontal' || layout === 'horizontal') {
-          innerRef.style.transform = "translate3d(-" + initialScrollOffset + "px, 0, 0)";
+          innerRef.style.transform = "translate3d(-" + initialScrollOffset + "px, 0px, 0px)";
         } else {
-          innerRef.style.transform = "translate3d(0, -" + initialScrollOffset + "px, 0)";
+          innerRef.style.transform = "translate3d(0px, -" + initialScrollOffset + "px, 0px)";
         }
       }
 
@@ -1297,9 +1296,9 @@ function createListComponent(_ref) {
         var innerRef = this._innerRef; // TODO Deprecate direction "horizontal"
 
         if (direction === 'horizontal' || layout === 'horizontal') {
-          innerRef.style.transform = "translate3d(-" + scrollOffset + "px, 0, 0)";
+          innerRef.style.transform = "translate3d(-" + scrollOffset + "px, 0px, 0px)";
         } else {
-          innerRef.style.transform = "translate3d(0, -" + scrollOffset + "px, 0)";
+          innerRef.style.transform = "translate3d(0px, -" + scrollOffset + "px, 0px)";
         }
       }
 
@@ -1317,7 +1316,6 @@ function createListComponent(_ref) {
           children = _this$props4.children,
           className = _this$props4.className,
           direction = _this$props4.direction,
-          height = _this$props4.height,
           innerElementType = _this$props4.innerElementType,
           innerTagName = _this$props4.innerTagName,
           itemCount = _this$props4.itemCount,
@@ -1328,8 +1326,7 @@ function createListComponent(_ref) {
           outerElementType = _this$props4.outerElementType,
           outerTagName = _this$props4.outerTagName,
           style = _this$props4.style,
-          useIsScrolling = _this$props4.useIsScrolling,
-          width = _this$props4.width;
+          useIsScrolling = _this$props4.useIsScrolling;
       var isScrolling = this.state.isScrolling; // TODO Deprecate direction "horizontal"
 
       var isHorizontal = direction === 'horizontal' || layout === 'horizontal';
@@ -1353,30 +1350,33 @@ function createListComponent(_ref) {
         }
       } // Read this value AFTER items have been created,
       // So their actual sizes (if variable) are taken into consideration.
+      // const estimatedTotalSize = getEstimatedTotalSize(
+      //   this.props,
+      //   this._instanceProps
+      // );
 
 
-      var estimatedTotalSize = getEstimatedTotalSize(this.props, this._instanceProps);
       return react.createElement(outerElementType || outerTagName || 'div', {
         className: className,
         onScroll: onScroll,
         ref: this._outerRefSetter,
         style: _extends({
           position: 'relative',
-          height: height,
-          width: width,
-          overflow: 'hidden',
+          // height: 0,
+          // width: 0,
+          // overflow: 'hidden',
           WebkitOverflowScrolling: 'touch',
           willChange: 'transform',
-          direction: direction
+          contain: 'layout'
         }, style)
       }, react.createElement(innerElementType || innerTagName || 'div', {
         children: items,
         ref: this._innerRefSetter,
         style: {
-          height: isHorizontal ? '100%' : estimatedTotalSize,
+          position: 'relative',
           pointerEvents: isScrolling ? 'none' : undefined,
-          width: isHorizontal ? estimatedTotalSize : '100%',
-          willChange: 'transform'
+          willChange: 'transform',
+          contain: 'layout'
         }
       }));
     };

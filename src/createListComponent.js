@@ -236,9 +236,9 @@ export default function createListComponent({
         const innerRef = ((this._innerRef: any): HTMLElement);
         // TODO Deprecate direction "horizontal"
         if (direction === 'horizontal' || layout === 'horizontal') {
-          innerRef.style.transform = `translate3d(-${initialScrollOffset}px, 0, 0)`;
+          innerRef.style.transform = `translate3d(-${initialScrollOffset}px, 0px, 0px)`;
         } else {
-          innerRef.style.transform = `translate3d(0, -${initialScrollOffset}px, 0)`;
+          innerRef.style.transform = `translate3d(0px, -${initialScrollOffset}px, 0px)`;
         }
       }
 
@@ -254,9 +254,9 @@ export default function createListComponent({
 
         // TODO Deprecate direction "horizontal"
         if (direction === 'horizontal' || layout === 'horizontal') {
-          innerRef.style.transform = `translate3d(-${scrollOffset}px, 0, 0)`;
+          innerRef.style.transform = `translate3d(-${scrollOffset}px, 0px, 0px)`;
         } else {
-          innerRef.style.transform = `translate3d(0, -${scrollOffset}px, 0)`;
+          innerRef.style.transform = `translate3d(0px, -${scrollOffset}px, 0px)`;
         }
       }
 
@@ -274,7 +274,7 @@ export default function createListComponent({
         children,
         className,
         direction,
-        height,
+        // height,
         innerElementType,
         innerTagName,
         itemCount,
@@ -285,7 +285,7 @@ export default function createListComponent({
         outerTagName,
         style,
         useIsScrolling,
-        width,
+        // width,
       } = this.props;
       const { isScrolling } = this.state;
 
@@ -316,10 +316,10 @@ export default function createListComponent({
 
       // Read this value AFTER items have been created,
       // So their actual sizes (if variable) are taken into consideration.
-      const estimatedTotalSize = getEstimatedTotalSize(
-        this.props,
-        this._instanceProps
-      );
+      // const estimatedTotalSize = getEstimatedTotalSize(
+      //   this.props,
+      //   this._instanceProps
+      // );
 
       return createElement(
         outerElementType || outerTagName || 'div',
@@ -329,12 +329,12 @@ export default function createListComponent({
           ref: this._outerRefSetter,
           style: {
             position: 'relative',
-            height,
-            width,
-            overflow: 'hidden',
+            // height: 0,
+            // width: 0,
+            // overflow: 'hidden',
             WebkitOverflowScrolling: 'touch',
             willChange: 'transform',
-            direction,
+            contain: 'layout',
             ...style,
           },
         },
@@ -342,10 +342,10 @@ export default function createListComponent({
           children: items,
           ref: this._innerRefSetter,
           style: {
-            height: isHorizontal ? '100%' : estimatedTotalSize,
+            position: 'relative',
             pointerEvents: isScrolling ? 'none' : undefined,
-            width: isHorizontal ? estimatedTotalSize : '100%',
             willChange: 'transform',
+            contain: 'layout',
           },
         })
       );
@@ -450,7 +450,6 @@ export default function createListComponent({
 
         const offsetHorizontal = isHorizontal ? offset : 0;
         itemStyleCache[index] = style = {
-          position: 'absolute',
           left: offsetHorizontal,
           right: undefined,
           top: !isHorizontal ? offset : 0,
