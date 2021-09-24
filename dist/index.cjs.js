@@ -1348,13 +1348,7 @@ function createListComponent(_ref) {
             style: this._getItemStyle(_index)
           }));
         }
-      } // Read this value AFTER items have been created,
-      // So their actual sizes (if variable) are taken into consideration.
-      // const estimatedTotalSize = getEstimatedTotalSize(
-      //   this.props,
-      //   this._instanceProps
-      // );
-
+      }
 
       return react.createElement(outerElementType || outerTagName || 'div', {
         className: className,
@@ -1362,9 +1356,6 @@ function createListComponent(_ref) {
         ref: this._outerRefSetter,
         style: _extends({
           position: 'relative',
-          // height: 0,
-          // width: 0,
-          // overflow: 'hidden',
           WebkitOverflowScrolling: 'touch',
           willChange: 'transform',
           contain: 'layout'
@@ -1374,9 +1365,10 @@ function createListComponent(_ref) {
         ref: this._innerRefSetter,
         style: {
           position: 'relative',
-          pointerEvents: isScrolling ? 'none' : undefined,
           willChange: 'transform',
-          contain: 'layout'
+          contain: 'layout',
+          backfaceVisibility: 'hidden',
+          transformStyle: 'preserve-3d'
         }
       }));
     };

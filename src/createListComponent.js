@@ -314,13 +314,6 @@ export default function createListComponent({
         }
       }
 
-      // Read this value AFTER items have been created,
-      // So their actual sizes (if variable) are taken into consideration.
-      // const estimatedTotalSize = getEstimatedTotalSize(
-      //   this.props,
-      //   this._instanceProps
-      // );
-
       return createElement(
         outerElementType || outerTagName || 'div',
         {
@@ -329,9 +322,6 @@ export default function createListComponent({
           ref: this._outerRefSetter,
           style: {
             position: 'relative',
-            // height: 0,
-            // width: 0,
-            // overflow: 'hidden',
             WebkitOverflowScrolling: 'touch',
             willChange: 'transform',
             contain: 'layout',
@@ -343,9 +333,10 @@ export default function createListComponent({
           ref: this._innerRefSetter,
           style: {
             position: 'relative',
-            pointerEvents: isScrolling ? 'none' : undefined,
             willChange: 'transform',
             contain: 'layout',
+            backfaceVisibility: 'hidden',
+            transformStyle: 'preserve-3d',
           },
         })
       );
