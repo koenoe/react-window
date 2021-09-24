@@ -10,7 +10,7 @@ export type ScrollToAlign = 'auto' | 'smart' | 'center' | 'start' | 'end';
 
 type itemSize = number | ((index: number) => number);
 // TODO Deprecate directions "horizontal" and "vertical"
-type Direction = 'ltr' | 'rtl' | 'horizontal' | 'vertical';
+type Direction = 'horizontal' | 'vertical';
 type Layout = 'horizontal' | 'vertical';
 
 type RenderComponentProps<T> = {|
@@ -274,7 +274,6 @@ export default function createListComponent({
         children,
         className,
         direction,
-        // height,
         innerElementType,
         innerTagName,
         itemCount,
@@ -285,7 +284,6 @@ export default function createListComponent({
         outerTagName,
         style,
         useIsScrolling,
-        // width,
       } = this.props;
       const { isScrolling } = this.state;
 
