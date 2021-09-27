@@ -376,9 +376,7 @@ function createListComponent(_ref) {
         style: {
           position: 'relative',
           willChange: 'transform',
-          contain: 'layout',
-          backfaceVisibility: 'hidden',
-          transformStyle: 'preserve-3d'
+          contain: 'layout'
         }
       }));
     };

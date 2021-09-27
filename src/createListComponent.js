@@ -333,8 +333,6 @@ export default function createListComponent({
             position: 'relative',
             willChange: 'transform',
             contain: 'layout',
-            backfaceVisibility: 'hidden',
-            transformStyle: 'preserve-3d',
           },
         })
       );
