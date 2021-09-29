@@ -41,14 +41,10 @@ var defaultItemKey = function defaultItemKey(index, data) {
 // This avoids spamming the console every time a render happens.
 
 
-var devWarningsDirection = null;
 var devWarningsTagName = null;
 
 if (process.env.NODE_ENV !== 'production') {
   if (typeof window !== 'undefined' && typeof window.WeakSet !== 'undefined') {
-    devWarningsDirection =
-    /*#__PURE__*/
-    new WeakSet();
     devWarningsTagName =
     /*#__PURE__*/
     new WeakSet();
@@ -111,11 +107,10 @@ function createListComponent(_ref) {
 
       _this._getItemStyle = function (index) {
         var _this$props = _this.props,
-            direction = _this$props.direction,
             itemSize = _this$props.itemSize,
             layout = _this$props.layout;
 
-        var itemStyleCache = _this._getItemStyleCache(shouldResetStyleCacheOnItemSizeChange && itemSize, shouldResetStyleCacheOnItemSizeChange && layout, shouldResetStyleCacheOnItemSizeChange && direction);
+        var itemStyleCache = _this._getItemStyleCache(shouldResetStyleCacheOnItemSizeChange && itemSize, shouldResetStyleCacheOnItemSizeChange && layout);
 
         var style;
 
@@ -124,9 +119,8 @@ function createListComponent(_ref) {
         } else {
           var _offset = getItemOffset(_this.props, index, _this._instanceProps);
 
-          var size = getItemSize(_this.props, index, _this._instanceProps); // TODO Deprecate direction "horizontal"
-
-          var isHorizontal = direction === 'horizontal' || layout === 'horizontal';
+          var size = getItemSize(_this.props, index, _this._instanceProps);
+          var isHorizontal = layout === 'horizontal';
           var offsetHorizontal = isHorizontal ? _offset : 0;
           itemStyleCache[index] = style = {
             left: offsetHorizontal,
@@ -277,14 +271,13 @@ function createListComponent(_ref) {
 
     _proto.componentDidMount = function componentDidMount() {
       var _this$props2 = this.props,
-          direction = _this$props2.direction,
           initialScrollOffset = _this$props2.initialScrollOffset,
           layout = _this$props2.layout;
 
       if (typeof initialScrollOffset === 'number' && this._innerRef != null) {
-        var innerRef = this._innerRef; // TODO Deprecate direction "horizontal"
+        var innerRef = this._innerRef;
 
-        if (direction === 'horizontal' || layout === 'horizontal') {
+        if (layout === 'horizontal') {
           innerRef.style.transform = "translate3d(-" + initialScrollOffset + "px, 0px, 0px)";
         } else {
           innerRef.style.transform = "translate3d(0px, -" + initialScrollOffset + "px, 0px)";
@@ -295,17 +288,15 @@ function createListComponent(_ref) {
     };
 
     _proto.componentDidUpdate = function componentDidUpdate() {
-      var _this$props3 = this.props,
-          direction = _this$props3.direction,
-          layout = _this$props3.layout;
+      var layout = this.props.layout;
       var _this$state = this.state,
           scrollOffset = _this$state.scrollOffset,
           scrollUpdateWasRequested = _this$state.scrollUpdateWasRequested;
 
       if (scrollUpdateWasRequested && this._innerRef != null) {
-        var innerRef = this._innerRef; // TODO Deprecate direction "horizontal"
+        var innerRef = this._innerRef;
 
-        if (direction === 'horizontal' || layout === 'horizontal') {
+        if (layout === 'horizontal') {
           innerRef.style.transform = "translate3d(-" + scrollOffset + "px, 0px, 0px)";
         } else {
           innerRef.style.transform = "translate3d(0px, -" + scrollOffset + "px, 0px)";
@@ -322,24 +313,22 @@ function createListComponent(_ref) {
     };
 
     _proto.render = function render() {
-      var _this$props4 = this.props,
-          children = _this$props4.children,
-          className = _this$props4.className,
-          direction = _this$props4.direction,
-          innerElementType = _this$props4.innerElementType,
-          innerTagName = _this$props4.innerTagName,
-          itemCount = _this$props4.itemCount,
-          itemData = _this$props4.itemData,
-          _this$props4$itemKey = _this$props4.itemKey,
-          itemKey = _this$props4$itemKey === void 0 ? defaultItemKey : _this$props4$itemKey,
-          layout = _this$props4.layout,
-          outerElementType = _this$props4.outerElementType,
-          outerTagName = _this$props4.outerTagName,
-          style = _this$props4.style,
-          useIsScrolling = _this$props4.useIsScrolling;
-      var isScrolling = this.state.isScrolling; // TODO Deprecate direction "horizontal"
-
-      var isHorizontal = direction === 'horizontal' || layout === 'horizontal';
+      var _this$props3 = this.props,
+          children = _this$props3.children,
+          className = _this$props3.className,
+          innerElementType = _this$props3.innerElementType,
+          innerTagName = _this$props3.innerTagName,
+          itemCount = _this$props3.itemCount,
+          itemData = _this$props3.itemData,
+          _this$props3$itemKey = _this$props3.itemKey,
+          itemKey = _this$props3$itemKey === void 0 ? defaultItemKey : _this$props3$itemKey,
+          layout = _this$props3.layout,
+          outerElementType = _this$props3.outerElementType,
+          outerTagName = _this$props3.outerTagName,
+          style = _this$props3.style,
+          useIsScrolling = _this$props3.useIsScrolling;
+      var isScrolling = this.state.isScrolling;
+      var isHorizontal = layout === 'horizontal';
       var onScroll = isHorizontal ? this._onScrollHorizontal : this._onScrollVertical;
 
       var _this$_getRangeToRend = this._getRangeToRender(),
@@ -411,9 +400,9 @@ function createListComponent(_ref) {
 
 
     _proto._getRangeToRender = function _getRangeToRender() {
-      var _this$props5 = this.props,
-          itemCount = _this$props5.itemCount,
-          overscanCount = _this$props5.overscanCount;
+      var _this$props4 = this.props,
+          itemCount = _this$props4.itemCount,
+          overscanCount = _this$props4.overscanCount;
       var _this$state3 = this.state,
           isScrolling = _this$state3.isScrolling,
           scrollDirection = _this$state3.scrollDirection,
@@ -434,7 +423,6 @@ function createListComponent(_ref) {
 
     return List;
   }(PureComponent), _class.defaultProps = {
-    direction: 'ltr',
     itemData: undefined,
     layout: 'vertical',
     overscanCount: 2,
@@ -448,7 +436,6 @@ function createListComponent(_ref) {
 
 var validateSharedProps = function validateSharedProps(_ref2, _ref3) {
   var children = _ref2.children,
-      direction = _ref2.direction,
       height = _ref2.height,
       layout = _ref2.layout,
       innerTagName = _ref2.innerTagName,
@@ -462,29 +449,9 @@ var validateSharedProps = function validateSharedProps(_ref2, _ref3) {
         devWarningsTagName.add(instance);
         console.warn('The innerTagName and outerTagName props have been deprecated. ' + 'Please use the innerElementType and outerElementType props instead.');
       }
-    } // TODO Deprecate direction "horizontal"
-
-
-    var isHorizontal = direction === 'horizontal' || layout === 'horizontal';
-
-    switch (direction) {
-      case 'horizontal':
-      case 'vertical':
-        if (devWarningsDirection && !devWarningsDirection.has(instance)) {
-          devWarningsDirection.add(instance);
-          console.warn('The direction prop should be either "ltr" (default) or "rtl". ' + 'Please use the layout prop to specify "vertical" (default) or "horizontal" orientation.');
-        }
-
-        break;
-
-      case 'ltr':
-      case 'rtl':
-        // Valid values
-        break;
-
-      default:
-        throw Error('An invalid "direction" prop has been specified. ' + 'Value should be either "ltr" or "rtl". ' + ("\"" + direction + "\" was specified."));
     }
+
+    var isHorizontal = layout === 'horizontal';
 
     switch (layout) {
       case 'horizontal':

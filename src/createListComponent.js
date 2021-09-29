@@ -9,8 +9,6 @@ import type { TimeoutID } from './timer';
 export type ScrollToAlign = 'auto' | 'smart' | 'center' | 'start' | 'end';
 
 type itemSize = number | ((index: number) => number);
-// TODO Deprecate directions "horizontal" and "vertical"
-type Direction = 'horizontal' | 'vertical';
 type Layout = 'horizontal' | 'vertical';
 
 type RenderComponentProps<T> = {|
@@ -57,7 +55,6 @@ type InnerProps = {|
 export type Props<T> = {|
   children: RenderComponent<T>,
   className?: string,
-  direction: Direction,
   height: number | string,
   initialScrollOffset?: number,
   innerRef?: any,
@@ -125,11 +122,9 @@ const defaultItemKey = (index: number, data: any) => index;
 
 // In DEV mode, this Set helps us only log a warning once per component instance.
 // This avoids spamming the console every time a render happens.
-let devWarningsDirection = null;
 let devWarningsTagName = null;
 if (process.env.NODE_ENV !== 'production') {
   if (typeof window !== 'undefined' && typeof window.WeakSet !== 'undefined') {
-    devWarningsDirection = new WeakSet();
     devWarningsTagName = new WeakSet();
   }
 }
@@ -162,7 +157,6 @@ export default function createListComponent({
     _resetIsScrollingTimeoutId: TimeoutID | null = null;
 
     static defaultProps = {
-      direction: 'ltr',
       itemData: undefined,
       layout: 'vertical',
       overscanCount: 2,
@@ -230,12 +224,11 @@ export default function createListComponent({
     }
 
     componentDidMount() {
-      const { direction, initialScrollOffset, layout } = this.props;
+      const { initialScrollOffset, layout } = this.props;
 
       if (typeof initialScrollOffset === 'number' && this._innerRef != null) {
         const innerRef = ((this._innerRef: any): HTMLElement);
-        // TODO Deprecate direction "horizontal"
-        if (direction === 'horizontal' || layout === 'horizontal') {
+        if (layout === 'horizontal') {
           innerRef.style.transform = `translate3d(-${initialScrollOffset}px, 0px, 0px)`;
         } else {
           innerRef.style.transform = `translate3d(0px, -${initialScrollOffset}px, 0px)`;
@@ -246,14 +239,13 @@ export default function createListComponent({
     }
 
     componentDidUpdate() {
-      const { direction, layout } = this.props;
+      const { layout } = this.props;
       const { scrollOffset, scrollUpdateWasRequested } = this.state;
 
       if (scrollUpdateWasRequested && this._innerRef != null) {
         const innerRef = ((this._innerRef: any): HTMLElement);
 
-        // TODO Deprecate direction "horizontal"
-        if (direction === 'horizontal' || layout === 'horizontal') {
+        if (layout === 'horizontal') {
           innerRef.style.transform = `translate3d(-${scrollOffset}px, 0px, 0px)`;
         } else {
           innerRef.style.transform = `translate3d(0px, -${scrollOffset}px, 0px)`;
@@ -273,7 +265,6 @@ export default function createListComponent({
       const {
         children,
         className,
-        direction,
         innerElementType,
         innerTagName,
         itemCount,
@@ -287,9 +278,7 @@ export default function createListComponent({
       } = this.props;
       const { isScrolling } = this.state;
 
-      // TODO Deprecate direction "horizontal"
-      const isHorizontal =
-        direction === 'horizontal' || layout === 'horizontal';
+      const isHorizontal = layout === 'horizontal';
 
       const onScroll = isHorizontal
         ? this._onScrollHorizontal
@@ -416,12 +405,11 @@ export default function createListComponent({
     // So that List can clear cached styles and force item re-render if necessary.
     _getItemStyle: (index: number) => Object;
     _getItemStyle = (index: number): Object => {
-      const { direction, itemSize, layout } = this.props;
+      const { itemSize, layout } = this.props;
 
       const itemStyleCache = this._getItemStyleCache(
         shouldResetStyleCacheOnItemSizeChange && itemSize,
-        shouldResetStyleCacheOnItemSizeChange && layout,
-        shouldResetStyleCacheOnItemSizeChange && direction
+        shouldResetStyleCacheOnItemSizeChange && layout
       );
 
       let style;
@@ -430,12 +418,9 @@ export default function createListComponent({
       } else {
         const offset = getItemOffset(this.props, index, this._instanceProps);
         const size = getItemSize(this.props, index, this._instanceProps);
-
-        // TODO Deprecate direction "horizontal"
-        const isHorizontal =
-          direction === 'horizontal' || layout === 'horizontal';
-
+        const isHorizontal = layout === 'horizontal';
         const offsetHorizontal = isHorizontal ? offset : 0;
+
         itemStyleCache[index] = style = {
           left: offsetHorizontal,
           right: undefined,
@@ -606,15 +591,7 @@ export default function createListComponent({
 // So my doing it would just unnecessarily double the wrappers.
 
 const validateSharedProps = (
-  {
-    children,
-    direction,
-    height,
-    layout,
-    innerTagName,
-    outerTagName,
-    width,
-  }: Props<any>,
+  { children, height, layout, innerTagName, outerTagName, width }: Props<any>,
   { instance }: State
 ): void => {
   if (process.env.NODE_ENV !== 'production') {
@@ -628,31 +605,7 @@ const validateSharedProps = (
       }
     }
 
-    // TODO Deprecate direction "horizontal"
-    const isHorizontal = direction === 'horizontal' || layout === 'horizontal';
-
-    switch (direction) {
-      case 'horizontal':
-      case 'vertical':
-        if (devWarningsDirection && !devWarningsDirection.has(instance)) {
-          devWarningsDirection.add(instance);
-          console.warn(
-            'The direction prop should be either "ltr" (default) or "rtl". ' +
-              'Please use the layout prop to specify "vertical" (default) or "horizontal" orientation.'
-          );
-        }
-        break;
-      case 'ltr':
-      case 'rtl':
-        // Valid values
-        break;
-      default:
-        throw Error(
-          'An invalid "direction" prop has been specified. ' +
-            'Value should be either "ltr" or "rtl". ' +
-            `"${direction}" was specified.`
-        );
-    }
+    const isHorizontal = layout === 'horizontal';
 
     switch (layout) {
       case 'horizontal':
