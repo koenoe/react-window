@@ -121,13 +121,13 @@ function createListComponent(_ref) {
 
           var size = getItemSize(_this.props, index, _this._instanceProps);
           var isHorizontal = layout === 'horizontal';
-          var offsetHorizontal = isHorizontal ? _offset : 0;
+          var transform = isHorizontal ? "translate3d(" + _offset + "px, 0px, 0px)" : "translate3d(0px, " + _offset + "px, 0px)";
           itemStyleCache[index] = style = {
-            left: offsetHorizontal,
-            right: undefined,
-            top: !isHorizontal ? _offset : 0,
-            height: !isHorizontal ? size : '100%',
-            width: isHorizontal ? size : '100%'
+            transform: transform,
+            height: !isHorizontal ? size : 0,
+            width: isHorizontal ? size : 0,
+            willChange: 'transform',
+            transition: 'none'
           };
         }
 
@@ -588,12 +588,10 @@ createListComponent({
   },
   getEstimatedTotalSize: getEstimatedTotalSize,
   getOffsetForIndexAndAlignment: function getOffsetForIndexAndAlignment(props, index, align, scrollOffset, instanceProps) {
-    var direction = props.direction,
-        height = props.height,
+    var height = props.height,
         layout = props.layout,
-        width = props.width; // TODO Deprecate direction "horizontal"
-
-    var isHorizontal = direction === 'horizontal' || layout === 'horizontal';
+        width = props.width;
+    var isHorizontal = layout === 'horizontal';
     var size = isHorizontal ? width : height;
     var itemMetadata = getItemMetadata(props, index, instanceProps); // Get estimated total size after ItemMetadata is computed,
     // To ensure it reflects actual measurements instead of just estimates.
@@ -636,13 +634,11 @@ createListComponent({
     return findNearestItem(props, instanceProps, offset);
   },
   getStopIndexForStartIndex: function getStopIndexForStartIndex(props, startIndex, scrollOffset, instanceProps) {
-    var direction = props.direction,
-        height = props.height,
+    var height = props.height,
         itemCount = props.itemCount,
         layout = props.layout,
-        width = props.width; // TODO Deprecate direction "horizontal"
-
-    var isHorizontal = direction === 'horizontal' || layout === 'horizontal';
+        width = props.width;
+    var isHorizontal = layout === 'horizontal';
     var size = isHorizontal ? width : height;
     var itemMetadata = getItemMetadata(props, startIndex, instanceProps);
     var maxOffset = scrollOffset + size;
@@ -719,8 +715,7 @@ createListComponent({
         itemSize = _ref4.itemSize,
         layout = _ref4.layout,
         width = _ref4.width;
-    // TODO Deprecate direction "horizontal"
-    var isHorizontal = direction === 'horizontal' || layout === 'horizontal';
+    var isHorizontal = layout === 'horizontal';
     var size = isHorizontal ? width : height;
     var lastItemOffset = Math.max(0, itemCount * itemSize - size);
     var maxOffset = Math.min(lastItemOffset, index * itemSize);
@@ -780,8 +775,7 @@ createListComponent({
         itemSize = _ref6.itemSize,
         layout = _ref6.layout,
         width = _ref6.width;
-    // TODO Deprecate direction "horizontal"
-    var isHorizontal = direction === 'horizontal' || layout === 'horizontal';
+    var isHorizontal = layout === 'horizontal';
     var offset = startIndex * itemSize;
     var size = isHorizontal ? width : height;
     var numVisibleItems = Math.ceil((size + scrollOffset - offset) / itemSize);
