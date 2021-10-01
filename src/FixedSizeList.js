@@ -20,8 +20,7 @@ const FixedSizeList = createListComponent({
     align: ScrollToAlign,
     scrollOffset: number
   ): number => {
-    // TODO Deprecate direction "horizontal"
-    const isHorizontal = direction === 'horizontal' || layout === 'horizontal';
+    const isHorizontal = layout === 'horizontal';
     const size = (((isHorizontal ? width : height): any): number);
     const lastItemOffset = Math.max(
       0,
@@ -92,8 +91,7 @@ const FixedSizeList = createListComponent({
     startIndex: number,
     scrollOffset: number
   ): number => {
-    // TODO Deprecate direction "horizontal"
-    const isHorizontal = direction === 'horizontal' || layout === 'horizontal';
+    const isHorizontal = layout === 'horizontal';
     const offset = startIndex * ((itemSize: any): number);
     const size = (((isHorizontal ? width : height): any): number);
     const numVisibleItems = Math.ceil(
