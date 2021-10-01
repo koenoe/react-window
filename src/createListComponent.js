@@ -419,14 +419,17 @@ export default function createListComponent({
         const offset = getItemOffset(this.props, index, this._instanceProps);
         const size = getItemSize(this.props, index, this._instanceProps);
         const isHorizontal = layout === 'horizontal';
-        const offsetHorizontal = isHorizontal ? offset : 0;
+
+        const transform = isHorizontal
+          ? `translate3d(${offset}px, 0px, 0px)`
+          : `translate3d(0px, ${offset}px, 0px)`;
 
         itemStyleCache[index] = style = {
-          left: offsetHorizontal,
-          right: undefined,
-          top: !isHorizontal ? offset : 0,
-          height: !isHorizontal ? size : '100%',
-          width: isHorizontal ? size : '100%',
+          transform,
+          height: !isHorizontal ? size : 0,
+          width: isHorizontal ? size : 0,
+          willChange: 'transform',
+          transition: 'none',
         };
       }
 
