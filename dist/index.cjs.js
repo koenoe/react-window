@@ -357,7 +357,7 @@ function createListComponent(_ref) {
 
     _proto.render = function render() {
       var _this$props3 = this.props,
-          children = _this$props3.children,
+          itemRenderer = _this$props3.itemRenderer,
           className = _this$props3.className,
           innerElementType = _this$props3.innerElementType,
           itemCount = _this$props3.itemCount,
@@ -385,7 +385,7 @@ function createListComponent(_ref) {
         for (var _index = startIndex; _index <= stopIndex; _index++) {
           var isHidden = _index < visibleStartIndex || _index > visibleStopIndex;
           var domProperties = isHidden ? hiddenDOMProperties : null;
-          items.push(react.createElement(children, {
+          items.push(itemRenderer({
             data: itemData,
             domProperties: domProperties,
             key: itemKey(_index, itemData),
@@ -514,8 +514,7 @@ function createListComponent(_ref) {
 // So my doing it would just unnecessarily double the wrappers.
 
 var validateSharedProps = function validateSharedProps(_ref2, _ref3) {
-  var children = _ref2.children,
-      height = _ref2.height,
+  var height = _ref2.height,
       layout = _ref2.layout,
       innerTagName = _ref2.innerTagName,
       outerTagName = _ref2.outerTagName,
@@ -533,10 +532,6 @@ var validateSharedProps = function validateSharedProps(_ref2, _ref3) {
 
       default:
         throw Error('An invalid "layout" prop has been specified. ' + 'Value should be either "horizontal" or "vertical". ' + ("\"" + layout + "\" was specified."));
-    }
-
-    if (children == null) {
-      throw Error('An invalid "children" prop has been specified. ' + 'Value should be a React component. ' + ("\"" + (children === null ? 'null' : typeof children) + "\" was specified."));
     }
 
     if (isHorizontal && typeof width !== 'number') {
