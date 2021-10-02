@@ -43,9 +43,6 @@ var IdlePriority = scheduler.unstable_IdlePriority,
 //     : callback => callback();
 var DEFAULT_MAX_NUM_PRERENDER_ROWS = 15;
 var IS_SCROLLING_DEBOUNCE_INTERVAL = 150;
-var hiddenDOMProperties = {
-  hidden: true
-};
 
 var defaultItemKey = function defaultItemKey(index, data) {
   return index;
@@ -377,11 +374,10 @@ function createListComponent(_ref) {
 
       if (itemCount > 0) {
         for (var _index = startIndex; _index <= stopIndex; _index++) {
-          var isHidden = _index < visibleStartIndex || _index > visibleStopIndex;
-          var domProperties = isHidden ? hiddenDOMProperties : null;
+          var hidden = _index < visibleStartIndex || _index > visibleStopIndex;
           items.push(createElement(children, {
             data: itemData,
-            domProperties: domProperties,
+            hidden: hidden,
             key: itemKey(_index, itemData),
             index: _index,
             isScrolling: isScrolling,

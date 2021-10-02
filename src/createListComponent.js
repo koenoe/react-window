@@ -28,7 +28,7 @@ type RenderComponentProps<T> = {|
   index: number,
   isScrolling?: boolean,
   style: Style,
-  domProperties: Object,
+  hidden: boolean,
 |};
 type RenderComponent<T> = React$ComponentType<$Shape<RenderComponentProps<T>>>;
 
@@ -51,16 +51,12 @@ type OuterProps = {|
   children: React$Node,
   className: string | void,
   onScroll: ScrollEvent => void,
-  style: {
-    [string]: mixed,
-  },
+  style: Style,
 |};
 
 type InnerProps = {|
   children: React$Node,
-  style: {
-    [string]: mixed,
-  },
+  style: Style,
 |};
 
 type PrerenderMode = 'none' | 'idle' | 'idle+debounce';
@@ -73,10 +69,6 @@ type PrerenderMode = 'none' | 'idle' | 'idle+debounce';
 
 const DEFAULT_MAX_NUM_PRERENDER_ROWS = 15;
 const IS_SCROLLING_DEBOUNCE_INTERVAL = 150;
-
-const hiddenDOMProperties = {
-  hidden: true,
-};
 
 export type Props<T> = {|
   children: RenderComponent<T>,
@@ -297,13 +289,11 @@ export default function createListComponent({
 
       if (itemCount > 0) {
         for (let index = startIndex; index <= stopIndex; index++) {
-          const isHidden =
-            index < visibleStartIndex || index > visibleStopIndex;
-          const domProperties = isHidden ? hiddenDOMProperties : null;
+          const hidden = index < visibleStartIndex || index > visibleStopIndex;
           items.push(
             createElement(children, {
               data: itemData,
-              domProperties,
+              hidden,
               key: itemKey(index, itemData),
               index,
               isScrolling,
