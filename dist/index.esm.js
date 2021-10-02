@@ -2,7 +2,7 @@ import _extends from '@babel/runtime/helpers/esm/extends';
 import _assertThisInitialized from '@babel/runtime/helpers/esm/assertThisInitialized';
 import _inheritsLoose from '@babel/runtime/helpers/esm/inheritsLoose';
 import memoizeOne from 'memoize-one';
-import { createElement, Fragment, PureComponent } from 'react';
+import { createElement, PureComponent } from 'react';
 import scheduler from 'scheduler';
 import _objectWithoutPropertiesLoose from '@babel/runtime/helpers/esm/objectWithoutPropertiesLoose';
 
@@ -375,12 +375,10 @@ function createListComponent(_ref) {
       if (itemCount > 0) {
         for (var _index = startIndex; _index <= stopIndex; _index++) {
           var hidden = _index < visibleStartIndex || _index > visibleStopIndex;
-          var key = itemKey(_index, itemData);
-          items.push(createElement(Fragment, {
-            hidden: hidden
-          }, children, {
+          items.push(createElement(children, {
             data: itemData,
-            key: key,
+            hidden: hidden,
+            key: itemKey(_index, itemData),
             index: _index,
             isScrolling: isScrolling,
             style: this._getItemStyle(_index)
