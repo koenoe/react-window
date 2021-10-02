@@ -5,10 +5,11 @@ Object.defineProperty(exports, '__esModule', { value: true });
 function _interopDefault (ex) { return (ex && (typeof ex === 'object') && 'default' in ex) ? ex['default'] : ex; }
 
 var _extends = _interopDefault(require('@babel/runtime/helpers/extends'));
-var _inheritsLoose = _interopDefault(require('@babel/runtime/helpers/inheritsLoose'));
 var _assertThisInitialized = _interopDefault(require('@babel/runtime/helpers/assertThisInitialized'));
+var _inheritsLoose = _interopDefault(require('@babel/runtime/helpers/inheritsLoose'));
 var memoizeOne = _interopDefault(require('memoize-one'));
 var react = require('react');
+var scheduler = require('scheduler');
 var _objectWithoutPropertiesLoose = _interopDefault(require('@babel/runtime/helpers/objectWithoutPropertiesLoose'));
 
 // Animation frame based implementation of setTimeout.
@@ -39,23 +40,18 @@ function requestTimeout(callback, delay) {
   return timeoutID;
 }
 
+// Polyfill flushSync for older React versions.
+// const flushSync =
+//   typeof maybeFlushSync === 'function'
+//     ? maybeFlushSync
+//     : callback => callback();
+var DEFAULT_MAX_NUM_PRERENDER_ROWS = 25;
+var PRERENDER_DEBOUNCE_INTERVAL = 150;
 var IS_SCROLLING_DEBOUNCE_INTERVAL = 150;
 
 var defaultItemKey = function defaultItemKey(index, data) {
   return index;
-}; // In DEV mode, this Set helps us only log a warning once per component instance.
-// This avoids spamming the console every time a render happens.
-
-
-var devWarningsTagName = null;
-
-if (process.env.NODE_ENV !== 'production') {
-  if (typeof window !== 'undefined' && typeof window.WeakSet !== 'undefined') {
-    devWarningsTagName =
-    /*#__PURE__*/
-    new WeakSet();
-  }
-}
+};
 
 function createListComponent(_ref) {
   var _class, _temp;
@@ -69,9 +65,7 @@ function createListComponent(_ref) {
       initInstanceProps = _ref.initInstanceProps,
       shouldResetStyleCacheOnItemSizeChange = _ref.shouldResetStyleCacheOnItemSizeChange,
       validateProps = _ref.validateProps;
-  return _temp = _class =
-  /*#__PURE__*/
-  function (_PureComponent) {
+  return _temp = _class = /*#__PURE__*/function (_PureComponent) {
     _inheritsLoose(List, _PureComponent);
 
     // Always use explicit constructor for React components.
@@ -81,22 +75,13 @@ function createListComponent(_ref) {
       var _this;
 
       _this = _PureComponent.call(this, props) || this;
-      _this._instanceProps = initInstanceProps(_this.props, _assertThisInitialized(_assertThisInitialized(_this)));
+      _this._instanceProps = initInstanceProps(_this.props, _assertThisInitialized(_this));
       _this._outerRef = void 0;
       _this._innerRef = void 0;
       _this._resetIsScrollingTimeoutId = null;
-      _this.state = {
-        instance: _assertThisInitialized(_assertThisInitialized(_this)),
-        isScrolling: false,
-        scrollDirection: 'forward',
-        scrollOffset: typeof _this.props.initialScrollOffset === 'number' ? _this.props.initialScrollOffset : 0,
-        scrollUpdateWasRequested: false
-      };
       _this._callOnItemsRendered = void 0;
-      _this._callOnItemsRendered = memoizeOne(function (overscanStartIndex, overscanStopIndex, visibleStartIndex, visibleStopIndex) {
+      _this._callOnItemsRendered = memoizeOne(function (visibleStartIndex, visibleStopIndex) {
         return _this.props.onItemsRendered({
-          overscanStartIndex: overscanStartIndex,
-          overscanStopIndex: overscanStopIndex,
           visibleStartIndex: visibleStartIndex,
           visibleStopIndex: visibleStopIndex
         });
@@ -162,11 +147,19 @@ function createListComponent(_ref) {
           var scrollOffset = scrollLeft; // Prevent Safari's elastic scrolling from causing visual shaking when scrolling past bounds.
 
           scrollOffset = Math.max(0, Math.min(scrollOffset, scrollWidth - clientWidth));
+
+          var _this$_getRangeToRend = _this._getRangeToRender(scrollOffset),
+              startIndex = _this$_getRangeToRend[0],
+              stopIndex = _this$_getRangeToRend[1];
+
+          var isSubset = startIndex >= prevState.startIndex && stopIndex <= prevState.stopIndex;
           return {
             isScrolling: true,
             scrollDirection: prevState.scrollOffset < scrollLeft ? 'forward' : 'backward',
             scrollOffset: scrollOffset,
-            scrollUpdateWasRequested: false
+            scrollUpdateWasRequested: false,
+            startIndex: isSubset ? prevState.startIndex : startIndex,
+            stopIndex: isSubset ? prevState.stopIndex : stopIndex
           };
         }, _this._resetIsScrollingDebounced);
       };
@@ -187,11 +180,19 @@ function createListComponent(_ref) {
 
 
           var scrollOffset = Math.max(0, Math.min(scrollTop, scrollHeight - clientHeight));
+
+          var _this$_getRangeToRend2 = _this._getRangeToRender(scrollOffset),
+              startIndex = _this$_getRangeToRend2[0],
+              stopIndex = _this$_getRangeToRend2[1];
+
+          var isSubset = startIndex >= prevState.startIndex && stopIndex <= prevState.stopIndex;
           return {
             isScrolling: true,
             scrollDirection: prevState.scrollOffset < scrollOffset ? 'forward' : 'backward',
             scrollOffset: scrollOffset,
-            scrollUpdateWasRequested: false
+            scrollUpdateWasRequested: false,
+            startIndex: isSubset ? prevState.startIndex : startIndex,
+            stopIndex: isSubset ? prevState.stopIndex : stopIndex
           };
         }, _this._resetIsScrollingDebounced);
       };
@@ -218,6 +219,36 @@ function createListComponent(_ref) {
         }
       };
 
+      _this._prerenderOverscanRows = function () {
+        _this._prerenderOverscanRowsTimeoutID = null;
+        scheduler.unstable_runWithPriority(scheduler.unstable_IdlePriority, function () {
+          _this.setState(function (prevState) {
+            var _this$props2 = _this.props,
+                itemCount = _this$props2.itemCount,
+                _this$props2$maxNumPr = _this$props2.maxNumPrerenderRows,
+                maxNumPrerenderRows = _this$props2$maxNumPr === void 0 ? DEFAULT_MAX_NUM_PRERENDER_ROWS : _this$props2$maxNumPr;
+
+            var _this$_getRangeToRend3 = _this._getRangeToRender(prevState.scrollTop),
+                startIndex = _this$_getRangeToRend3[0],
+                stopIndex = _this$_getRangeToRend3[1];
+
+            var numRowsPerViewport = stopIndex - startIndex;
+            var numPrerenderRows = Math.min(numRowsPerViewport, maxNumPrerenderRows);
+            var nextStartIndex = Math.max(0, startIndex - numPrerenderRows);
+            var nextStopIndex = Math.min(itemCount - 1, stopIndex + numPrerenderRows);
+
+            if (prevState.startIndex === nextStartIndex && prevState.stopIndex === nextStopIndex) {
+              return null;
+            }
+
+            return {
+              startIndex: nextStartIndex,
+              stopIndex: nextStopIndex
+            };
+          });
+        });
+      };
+
       _this._resetIsScrollingDebounced = function () {
         if (_this._resetIsScrollingTimeoutId !== null) {
           cancelTimeout(_this._resetIsScrollingTimeoutId);
@@ -238,6 +269,23 @@ function createListComponent(_ref) {
         });
       };
 
+      var initialScrollOffset = props.initialScrollOffset;
+
+      var _scrollOffset = typeof initialScrollOffset === 'number' ? initialScrollOffset : 0;
+
+      var _this$_getRangeToRend4 = _this._getRangeToRender(_scrollOffset),
+          _startIndex = _this$_getRangeToRend4[0],
+          _stopIndex = _this$_getRangeToRend4[1];
+
+      _this.state = {
+        instance: _assertThisInitialized(_this),
+        isScrolling: false,
+        scrollDirection: 'forward',
+        scrollOffset: _scrollOffset,
+        scrollUpdateWasRequested: typeof initialScrollOffset === 'number',
+        startIndex: _startIndex,
+        stopIndex: _stopIndex
+      };
       return _this;
     }
 
@@ -276,9 +324,9 @@ function createListComponent(_ref) {
     };
 
     _proto.componentDidMount = function componentDidMount() {
-      var _this$props2 = this.props,
-          initialScrollOffset = _this$props2.initialScrollOffset,
-          layout = _this$props2.layout;
+      var _this$props3 = this.props,
+          initialScrollOffset = _this$props3.initialScrollOffset,
+          layout = _this$props3.layout;
 
       if (typeof initialScrollOffset === 'number' && this._innerRef != null) {
         var innerRef = this._innerRef;
@@ -316,30 +364,33 @@ function createListComponent(_ref) {
       if (this._resetIsScrollingTimeoutId !== null) {
         cancelTimeout(this._resetIsScrollingTimeoutId);
       }
+
+      if (this._prerenderOverscanRowsTimeoutID !== null) {
+        cancelTimeout(this._prerenderOverscanRowsTimeoutID);
+      }
     };
 
     _proto.render = function render() {
-      var _this$props3 = this.props,
-          children = _this$props3.children,
-          className = _this$props3.className,
-          innerElementType = _this$props3.innerElementType,
-          innerTagName = _this$props3.innerTagName,
-          itemCount = _this$props3.itemCount,
-          itemData = _this$props3.itemData,
-          _this$props3$itemKey = _this$props3.itemKey,
-          itemKey = _this$props3$itemKey === void 0 ? defaultItemKey : _this$props3$itemKey,
-          layout = _this$props3.layout,
-          outerElementType = _this$props3.outerElementType,
-          outerTagName = _this$props3.outerTagName,
-          style = _this$props3.style,
-          useIsScrolling = _this$props3.useIsScrolling;
-      var isScrolling = this.state.isScrolling;
+      var _this$props4 = this.props,
+          children = _this$props4.children,
+          className = _this$props4.className,
+          innerElementType = _this$props4.innerElementType,
+          itemCount = _this$props4.itemCount,
+          itemData = _this$props4.itemData,
+          _this$props4$itemKey = _this$props4.itemKey,
+          itemKey = _this$props4$itemKey === void 0 ? defaultItemKey : _this$props4$itemKey,
+          layout = _this$props4.layout,
+          outerElementType = _this$props4.outerElementType,
+          style = _this$props4.style;
+      var _this$state2 = this.state,
+          isScrolling = _this$state2.isScrolling,
+          scrollOffset = _this$state2.scrollOffset;
       var isHorizontal = layout === 'horizontal';
       var onScroll = isHorizontal ? this._onScrollHorizontal : this._onScrollVertical;
 
-      var _this$_getRangeToRend = this._getRangeToRender(),
-          startIndex = _this$_getRangeToRend[0],
-          stopIndex = _this$_getRangeToRend[1];
+      var _this$_getRangeToRend5 = this._getRangeToRender(scrollOffset),
+          startIndex = _this$_getRangeToRend5[0],
+          stopIndex = _this$_getRangeToRend5[1];
 
       var items = [];
 
@@ -349,13 +400,13 @@ function createListComponent(_ref) {
             data: itemData,
             key: itemKey(_index, itemData),
             index: _index,
-            isScrolling: useIsScrolling ? isScrolling : undefined,
+            isScrolling: isScrolling,
             style: this._getItemStyle(_index)
           }));
         }
       }
 
-      return react.createElement(outerElementType || outerTagName || 'div', {
+      return react.createElement(outerElementType || 'div', {
         className: className,
         onScroll: onScroll,
         ref: this._outerRefSetter,
@@ -365,74 +416,107 @@ function createListComponent(_ref) {
           willChange: 'transform',
           contain: 'layout'
         }, style)
-      }, react.createElement(innerElementType || innerTagName || 'div', {
+      }, react.createElement(innerElementType || 'div', {
         children: items,
         ref: this._innerRefSetter,
         style: {
           position: 'relative',
           willChange: 'transform',
-          contain: 'layout'
+          contain: 'layout',
+          pointerEvents: 'none'
         }
       }));
+    };
+
+    _proto._commitHook = function _commitHook() {
+      var _this$props5 = this.props,
+          layout = _this$props5.layout,
+          itemCount = _this$props5.itemCount,
+          prerenderMode = _this$props5.prerenderMode;
+      var _this$state3 = this.state,
+          scrollOffset = _this$state3.scrollOffset,
+          scrollUpdateWasRequested = _this$state3.scrollUpdateWasRequested;
+
+      if (scrollUpdateWasRequested && this._innerRef != null) {
+        var innerRef = this._innerRef;
+
+        if (layout === 'horizontal') {
+          innerRef.style.transform = "translate3d(-" + scrollOffset + "px, 0px, 0px)";
+        } else {
+          innerRef.style.transform = "translate3d(0px, -" + scrollOffset + "px, 0px)";
+        }
+      }
+
+      if (itemCount > 0) {
+        // const [startIndex, stopIndex] = this._getRangeToRender(scrollOffset);
+        this._callPropsCallbacks();
+      } // Schedule an update to pre-render rows at idle priority.
+      // This will make the list more responsive to subsequent scrolling.
+
+
+      if (typeof scheduler.unstable_runWithPriority === 'function') {
+        if (prerenderMode === 'idle') {
+          this._prerenderOverscanRows();
+        } else if (prerenderMode === 'idle+debounce') {
+          this._prerenderOverscanRowsDebounced();
+        }
+      }
     };
 
     _proto._callPropsCallbacks = function _callPropsCallbacks() {
       if (typeof this.props.onItemsRendered === 'function') {
         var itemCount = this.props.itemCount;
+        var _scrollOffset2 = this.state.scrollOffset;
 
         if (itemCount > 0) {
-          var _this$_getRangeToRend2 = this._getRangeToRender(),
-              _overscanStartIndex = _this$_getRangeToRend2[0],
-              _overscanStopIndex = _this$_getRangeToRend2[1],
-              _visibleStartIndex = _this$_getRangeToRend2[2],
-              _visibleStopIndex = _this$_getRangeToRend2[3];
+          var _this$_getRangeToRend6 = this._getRangeToRender(_scrollOffset2),
+              _visibleStartIndex = _this$_getRangeToRend6[0],
+              _visibleStopIndex = _this$_getRangeToRend6[1];
 
-          this._callOnItemsRendered(_overscanStartIndex, _overscanStopIndex, _visibleStartIndex, _visibleStopIndex);
+          this._callOnItemsRendered(_visibleStartIndex, _visibleStopIndex);
         }
       }
 
       if (typeof this.props.onScroll === 'function') {
-        var _this$state2 = this.state,
-            _scrollDirection = _this$state2.scrollDirection,
-            _scrollOffset = _this$state2.scrollOffset,
-            _scrollUpdateWasRequested = _this$state2.scrollUpdateWasRequested;
+        var _this$state4 = this.state,
+            _scrollDirection = _this$state4.scrollDirection,
+            _scrollOffset3 = _this$state4.scrollOffset,
+            _scrollUpdateWasRequested = _this$state4.scrollUpdateWasRequested;
 
-        this._callOnScroll(_scrollDirection, _scrollOffset, _scrollUpdateWasRequested);
+        this._callOnScroll(_scrollDirection, _scrollOffset3, _scrollUpdateWasRequested);
       }
-    }; // Lazily create and cache item styles while scrolling,
+    } // Lazily create and cache item styles while scrolling,
     // So that pure component sCU will prevent re-renders.
     // We maintain this cache, and pass a style prop rather than index,
     // So that List can clear cached styles and force item re-render if necessary.
+    ;
 
-
-    _proto._getRangeToRender = function _getRangeToRender() {
-      var _this$props4 = this.props,
-          itemCount = _this$props4.itemCount,
-          overscanCount = _this$props4.overscanCount;
-      var _this$state3 = this.state,
-          isScrolling = _this$state3.isScrolling,
-          scrollDirection = _this$state3.scrollDirection,
-          scrollOffset = _this$state3.scrollOffset;
+    _proto._getRangeToRender = function _getRangeToRender(scrollOffset) {
+      var itemCount = this.props.itemCount;
 
       if (itemCount === 0) {
-        return [0, 0, 0, 0];
+        return [0, 0];
       }
 
       var startIndex = getStartIndexForOffset(this.props, scrollOffset, this._instanceProps);
       var stopIndex = getStopIndexForStartIndex(this.props, startIndex, scrollOffset, this._instanceProps); // Overscan by one item in each direction so that tab/focus works.
       // If there isn't at least one extra item, tab loops back around.
 
-      var overscanBackward = !isScrolling || scrollDirection === 'backward' ? Math.max(1, overscanCount) : 1;
-      var overscanForward = !isScrolling || scrollDirection === 'forward' ? Math.max(1, overscanCount) : 1;
-      return [Math.max(0, startIndex - overscanBackward), Math.max(0, Math.min(itemCount - 1, stopIndex + overscanForward)), startIndex, stopIndex];
+      return [Math.max(0, startIndex - 1), Math.max(0, Math.min(itemCount - 1, stopIndex + 1))];
+    };
+
+    _proto._prerenderOverscanRowsDebounced = function _prerenderOverscanRowsDebounced() {
+      if (this._prerenderOverscanRowsTimeoutID !== null) {
+        cancelTimeout(this._prerenderOverscanRowsTimeoutID);
+      }
+
+      this._prerenderOverscanRowsTimeoutID = requestTimeout(this._prerenderOverscanRows, PRERENDER_DEBOUNCE_INTERVAL);
     };
 
     return List;
   }(react.PureComponent), _class.defaultProps = {
     itemData: undefined,
-    layout: 'vertical',
-    overscanCount: 2,
-    useIsScrolling: false
+    layout: 'vertical'
   }, _temp;
 } // NOTE: I considered further wrapping individual items with a pure ListItem component.
 // This would avoid ever calling the render function for the same index more than once,
@@ -450,13 +534,6 @@ var validateSharedProps = function validateSharedProps(_ref2, _ref3) {
   var instance = _ref3.instance;
 
   if (process.env.NODE_ENV !== 'production') {
-    if (innerTagName != null || outerTagName != null) {
-      if (devWarningsTagName && !devWarningsTagName.has(instance)) {
-        devWarningsTagName.add(instance);
-        console.warn('The innerTagName and outerTagName props have been deprecated. ' + 'Please use the innerElementType and outerElementType props instead.');
-      }
-    }
-
     var isHorizontal = layout === 'horizontal';
 
     switch (layout) {
@@ -583,9 +660,7 @@ var getEstimatedTotalSize = function getEstimatedTotalSize(_ref2, _ref3) {
   return totalSizeOfMeasuredItems + totalSizeOfUnmeasuredItems;
 };
 
-var VariableSizeList =
-/*#__PURE__*/
-createListComponent({
+var VariableSizeList = /*#__PURE__*/createListComponent({
   getItemOffset: function getItemOffset(props, index, instanceProps) {
     return getItemMetadata(props, index, instanceProps).offset;
   },
@@ -698,9 +773,7 @@ createListComponent({
   }
 });
 
-var FixedSizeList =
-/*#__PURE__*/
-createListComponent({
+var FixedSizeList = /*#__PURE__*/createListComponent({
   getItemOffset: function getItemOffset(_ref, index) {
     var itemSize = _ref.itemSize;
     return index * itemSize;
@@ -820,15 +893,17 @@ function shallowDiffers(prev, next) {
   return false;
 }
 
+var _excluded = ["style"],
+    _excluded2 = ["style"];
 // It knows to compare individual style props and ignore the wrapper object.
 // See https://reactjs.org/docs/react-api.html#reactmemo
 
 function areEqual(prevProps, nextProps) {
   var prevStyle = prevProps.style,
-      prevRest = _objectWithoutPropertiesLoose(prevProps, ["style"]);
+      prevRest = _objectWithoutPropertiesLoose(prevProps, _excluded);
 
   var nextStyle = nextProps.style,
-      nextRest = _objectWithoutPropertiesLoose(nextProps, ["style"]);
+      nextRest = _objectWithoutPropertiesLoose(nextProps, _excluded2);
 
   return !shallowDiffers(prevStyle, nextStyle) && !shallowDiffers(prevRest, nextRest);
 }
@@ -840,8 +915,8 @@ function shouldComponentUpdate(nextProps, nextState) {
   return !areEqual(this.props, nextProps) || shallowDiffers(this.state, nextState);
 }
 
-exports.VariableSizeList = VariableSizeList;
 exports.FixedSizeList = FixedSizeList;
+exports.VariableSizeList = VariableSizeList;
 exports.areEqual = areEqual;
 exports.shouldComponentUpdate = shouldComponentUpdate;
 //# sourceMappingURL=index.cjs.js.map
