@@ -408,8 +408,8 @@ function createListComponent(_ref) {
         style: {
           position: 'relative',
           willChange: 'transform',
-          contain: 'layout' // pointerEvents: 'none',
-
+          contain: 'layout',
+          pointerEvents: 'none'
         }
       }));
     };

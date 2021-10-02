@@ -324,7 +324,7 @@ export default function createListComponent({
             position: 'relative',
             willChange: 'transform',
             contain: 'layout',
-            // pointerEvents: 'none',
+            pointerEvents: 'none',
           },
         })
       );
