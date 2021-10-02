@@ -41,8 +41,11 @@ var IdlePriority = scheduler.unstable_IdlePriority,
 //   typeof maybeFlushSync === 'function'
 //     ? maybeFlushSync
 //     : callback => callback();
-var DEFAULT_MAX_NUM_PRERENDER_ROWS = 25;
+var DEFAULT_MAX_NUM_PRERENDER_ROWS = 15;
 var IS_SCROLLING_DEBOUNCE_INTERVAL = 150;
+var hiddenDOMProperties = {
+  hidden: true
+};
 
 var defaultItemKey = function defaultItemKey(index, data) {
   return index;
@@ -360,16 +363,25 @@ function createListComponent(_ref) {
           style = _this$props3.style;
       var _this$state = this.state,
           isScrolling = _this$state.isScrolling,
+          scrollOffset = _this$state.scrollOffset,
           startIndex = _this$state.startIndex,
           stopIndex = _this$state.stopIndex;
       var isHorizontal = layout === 'horizontal';
       var onScroll = isHorizontal ? this._onScrollHorizontal : this._onScrollVertical;
+
+      var _this$_getVisibleIndi = this._getVisibleIndicesForOffset(scrollOffset),
+          visibleStartIndex = _this$_getVisibleIndi[0],
+          visibleStopIndex = _this$_getVisibleIndi[1];
+
       var items = [];
 
       if (itemCount > 0) {
         for (var _index = startIndex; _index <= stopIndex; _index++) {
+          var isHidden = _index < visibleStartIndex || _index > visibleStopIndex;
+          var domProperties = isHidden ? hiddenDOMProperties : null;
           items.push(createElement(children, {
             data: itemData,
+            domProperties: domProperties,
             key: itemKey(_index, itemData),
             index: _index,
             isScrolling: isScrolling,

@@ -19,12 +19,16 @@ export type ScrollToAlign = 'auto' | 'smart' | 'center' | 'start' | 'end';
 
 type itemSize = number | ((index: number) => number);
 type Layout = 'horizontal' | 'vertical';
+type Style = {
+  [string]: mixed,
+};
 
 type RenderComponentProps<T> = {|
   data: T,
   index: number,
   isScrolling?: boolean,
-  style: Object,
+  style: Style,
+  domProperties: Object,
 |};
 type RenderComponent<T> = React$ComponentType<$Shape<RenderComponentProps<T>>>;
 
@@ -67,8 +71,12 @@ type PrerenderMode = 'none' | 'idle' | 'idle+debounce';
 //     ? maybeFlushSync
 //     : callback => callback();
 
-const DEFAULT_MAX_NUM_PRERENDER_ROWS = 25;
+const DEFAULT_MAX_NUM_PRERENDER_ROWS = 15;
 const IS_SCROLLING_DEBOUNCE_INTERVAL = 150;
+
+const hiddenDOMProperties = {
+  hidden: true,
+};
 
 export type Props<T> = {|
   children: RenderComponent<T>,
@@ -273,7 +281,7 @@ export default function createListComponent({
         outerElementType,
         style,
       } = this.props;
-      const { isScrolling, startIndex, stopIndex } = this.state;
+      const { isScrolling, scrollOffset, startIndex, stopIndex } = this.state;
 
       const isHorizontal = layout === 'horizontal';
 
@@ -281,12 +289,22 @@ export default function createListComponent({
         ? this._onScrollHorizontal
         : this._onScrollVertical;
 
+      const [
+        visibleStartIndex,
+        visibleStopIndex,
+      ] = this._getVisibleIndicesForOffset(scrollOffset);
+
       const items = [];
+
       if (itemCount > 0) {
         for (let index = startIndex; index <= stopIndex; index++) {
+          const isHidden =
+            index < visibleStartIndex || index > visibleStopIndex;
+          const domProperties = isHidden ? hiddenDOMProperties : null;
           items.push(
             createElement(children, {
               data: itemData,
+              domProperties,
               key: itemKey(index, itemData),
               index,
               isScrolling,
