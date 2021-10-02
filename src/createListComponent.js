@@ -289,10 +289,9 @@ export default function createListComponent({
         ? this._onScrollHorizontal
         : this._onScrollVertical;
 
-      const [
-        visibleStartIndex,
-        visibleStopIndex,
-      ] = this._getVisibleIndicesForOffset(scrollOffset);
+      const [visibleStartIndex, visibleStopIndex] = this._getRangeToRender(
+        scrollOffset
+      );
 
       const items = [];
 

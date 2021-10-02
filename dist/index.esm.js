@@ -369,9 +369,9 @@ function createListComponent(_ref) {
       var isHorizontal = layout === 'horizontal';
       var onScroll = isHorizontal ? this._onScrollHorizontal : this._onScrollVertical;
 
-      var _this$_getVisibleIndi = this._getVisibleIndicesForOffset(scrollOffset),
-          visibleStartIndex = _this$_getVisibleIndi[0],
-          visibleStopIndex = _this$_getVisibleIndi[1];
+      var _this$_getRangeToRend5 = this._getRangeToRender(scrollOffset),
+          visibleStartIndex = _this$_getRangeToRend5[0],
+          visibleStopIndex = _this$_getRangeToRend5[1];
 
       var items = [];
 
@@ -452,9 +452,9 @@ function createListComponent(_ref) {
         var _scrollOffset2 = this.state.scrollOffset;
 
         if (itemCount > 0) {
-          var _this$_getRangeToRend5 = this._getRangeToRender(_scrollOffset2),
-              _visibleStartIndex = _this$_getRangeToRend5[0],
-              _visibleStopIndex = _this$_getRangeToRend5[1];
+          var _this$_getRangeToRend6 = this._getRangeToRender(_scrollOffset2),
+              _visibleStartIndex = _this$_getRangeToRend6[0],
+              _visibleStopIndex = _this$_getRangeToRend6[1];
 
           this._callOnItemsRendered(_visibleStartIndex, _visibleStopIndex);
         }
