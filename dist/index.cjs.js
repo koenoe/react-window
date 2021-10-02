@@ -381,10 +381,12 @@ function createListComponent(_ref) {
       if (itemCount > 0) {
         for (var _index = startIndex; _index <= stopIndex; _index++) {
           var hidden = _index < visibleStartIndex || _index > visibleStopIndex;
-          items.push(react.createElement(children, {
+          var key = itemKey(_index, itemData);
+          items.push(react.createElement(react.Fragment, {
+            hidden: hidden
+          }, children, {
             data: itemData,
-            hidden: hidden,
-            key: itemKey(_index, itemData),
+            key: key,
             index: _index,
             isScrolling: isScrolling,
             style: this._getItemStyle(_index)

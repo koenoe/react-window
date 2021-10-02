@@ -1,6 +1,6 @@
 // @flow
 import memoizeOne from 'memoize-one';
-import { createElement, PureComponent } from 'react';
+import { Fragment, createElement, PureComponent } from 'react';
 // $FlowFixMe
 // import { flushSync as maybeFlushSync } from 'react-dom';
 
@@ -28,7 +28,6 @@ type RenderComponentProps<T> = {|
   index: number,
   isScrolling?: boolean,
   style: Style,
-  hidden: boolean,
 |};
 type RenderComponent<T> = React$ComponentType<$Shape<RenderComponentProps<T>>>;
 
@@ -290,11 +289,11 @@ export default function createListComponent({
       if (itemCount > 0) {
         for (let index = startIndex; index <= stopIndex; index++) {
           const hidden = index < visibleStartIndex || index > visibleStopIndex;
+          const key = itemKey(index, itemData);
           items.push(
-            createElement(children, {
+            createElement(Fragment, { hidden }, children, {
               data: itemData,
-              hidden,
-              key: itemKey(index, itemData),
+              key,
               index,
               isScrolling,
               style: this._getItemStyle(index),
