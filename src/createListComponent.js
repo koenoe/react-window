@@ -23,14 +23,14 @@ type Style = {
   [string]: mixed,
 };
 
-type itemRendererFn = ({|
+type RenderComponentProps<T> = {|
   data: T,
   index: number,
-  key: string | number,
   isScrolling?: boolean,
   style: Style,
   domProperties: Object,
-|}) => React$Node;
+|};
+type RenderComponent<T> = React$ComponentType<$Shape<RenderComponentProps<T>>>;
 
 type ScrollDirection = 'forward' | 'backward';
 
@@ -51,12 +51,16 @@ type OuterProps = {|
   children: React$Node,
   className: string | void,
   onScroll: ScrollEvent => void,
-  style: Style,
+  style: {
+    [string]: mixed,
+  },
 |};
 
 type InnerProps = {|
   children: React$Node,
-  style: Style,
+  style: {
+    [string]: mixed,
+  },
 |};
 
 type PrerenderMode = 'none' | 'idle' | 'idle+debounce';
@@ -75,6 +79,7 @@ const hiddenDOMProperties = {
 };
 
 export type Props<T> = {|
+  children: RenderComponent<T>,
   className?: string,
   height: number | string,
   initialScrollOffset?: number,
@@ -83,7 +88,6 @@ export type Props<T> = {|
   itemCount: number,
   itemData: T,
   itemKey?: (index: number, data: T) => any,
-  itemRenderer: itemRendererFn,
   itemSize: itemSize,
   maxNumPrerenderRows?: number,
   layout: Layout,
@@ -267,7 +271,7 @@ export default function createListComponent({
 
     render() {
       const {
-        itemRenderer,
+        children,
         className,
         innerElementType,
         itemCount,
@@ -297,7 +301,7 @@ export default function createListComponent({
             index < visibleStartIndex || index > visibleStopIndex;
           const domProperties = isHidden ? hiddenDOMProperties : null;
           items.push(
-            itemRenderer({
+            createElement(children, {
               data: itemData,
               domProperties,
               key: itemKey(index, itemData),
@@ -672,7 +676,7 @@ export default function createListComponent({
 // So my doing it would just unnecessarily double the wrappers.
 
 const validateSharedProps = (
-  { height, layout, innerTagName, outerTagName, width }: Props<any>,
+  { children, height, layout, innerTagName, outerTagName, width }: Props<any>,
   { instance }: State
 ): void => {
   if (process.env.NODE_ENV !== 'production') {
@@ -689,6 +693,14 @@ const validateSharedProps = (
             'Value should be either "horizontal" or "vertical". ' +
             `"${layout}" was specified.`
         );
+    }
+
+    if (children == null) {
+      throw Error(
+        'An invalid "children" prop has been specified. ' +
+          'Value should be a React component. ' +
+          `"${children === null ? 'null' : typeof children}" was specified.`
+      );
     }
 
     if (isHorizontal && typeof width !== 'number') {
