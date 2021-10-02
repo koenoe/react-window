@@ -1,18 +1,19 @@
 // @flow
-
 import memoizeOne from 'memoize-one';
 import { createElement, PureComponent } from 'react';
 // $FlowFixMe
 // import { flushSync as maybeFlushSync } from 'react-dom';
-// $FlowFixMe
-import {
-  unstable_IdlePriority as IdlePriority,
-  unstable_runWithPriority as runWithPriority,
-} from 'scheduler';
+
+import scheduler from 'scheduler';
 
 import { cancelTimeout, requestTimeout } from './timer';
 
 import type { TimeoutID } from './timer';
+
+const {
+  unstable_IdlePriority: IdlePriority,
+  unstable_runWithPriority: runWithPriority,
+} = scheduler;
 
 export type ScrollToAlign = 'auto' | 'smart' | 'center' | 'start' | 'end';
 
@@ -67,7 +68,7 @@ type PrerenderMode = 'none' | 'idle' | 'idle+debounce';
 //     : callback => callback();
 
 const DEFAULT_MAX_NUM_PRERENDER_ROWS = 25;
-const PRERENDER_DEBOUNCE_INTERVAL = 150;
+const IS_SCROLLING_DEBOUNCE_INTERVAL = 150;
 
 export type Props<T> = {|
   children: RenderComponent<T>,
@@ -133,8 +134,6 @@ type GetStopIndexForStartIndex = (
 type InitInstanceProps = (props: Props<any>, instance: any) => any;
 type ValidateProps = (props: Props<any>) => void;
 
-const IS_SCROLLING_DEBOUNCE_INTERVAL = 150;
-
 const defaultItemKey = (index: number, data: any) => index;
 
 export default function createListComponent({
@@ -163,6 +162,7 @@ export default function createListComponent({
     _outerRef: ?HTMLDivElement;
     _innerRef: ?HTMLDivElement;
     _resetIsScrollingTimeoutId: TimeoutID | null = null;
+    _prerenderOverscanRowsTimeoutID: TimeoutID | null = null;
 
     static defaultProps = {
       itemData: undefined,
@@ -209,11 +209,20 @@ export default function createListComponent({
         if (prevState.scrollOffset === scrollOffset) {
           return null;
         }
+
+        const [startIndex, stopIndex] = this._getRangeToRender(scrollOffset);
+
+        const isSubset =
+          startIndex >= prevState.startIndex &&
+          stopIndex <= prevState.stopIndex;
+
         return {
           scrollDirection:
             prevState.scrollOffset < scrollOffset ? 'forward' : 'backward',
-          scrollOffset: scrollOffset,
+          scrollOffset,
           scrollUpdateWasRequested: true,
+          startIndex: isSubset ? prevState.startIndex : startIndex,
+          stopIndex: isSubset ? prevState.stopIndex : stopIndex,
         };
       }, this._resetIsScrollingDebounced);
     }
@@ -236,35 +245,11 @@ export default function createListComponent({
     }
 
     componentDidMount() {
-      const { initialScrollOffset, layout } = this.props;
-
-      if (typeof initialScrollOffset === 'number' && this._innerRef != null) {
-        const innerRef = ((this._innerRef: any): HTMLElement);
-        if (layout === 'horizontal') {
-          innerRef.style.transform = `translate3d(-${initialScrollOffset}px, 0px, 0px)`;
-        } else {
-          innerRef.style.transform = `translate3d(0px, -${initialScrollOffset}px, 0px)`;
-        }
-      }
-
-      this._callPropsCallbacks();
+      this._commitHook();
     }
 
     componentDidUpdate() {
-      const { layout } = this.props;
-      const { scrollOffset, scrollUpdateWasRequested } = this.state;
-
-      if (scrollUpdateWasRequested && this._innerRef != null) {
-        const innerRef = ((this._innerRef: any): HTMLElement);
-
-        if (layout === 'horizontal') {
-          innerRef.style.transform = `translate3d(-${scrollOffset}px, 0px, 0px)`;
-        } else {
-          innerRef.style.transform = `translate3d(0px, -${scrollOffset}px, 0px)`;
-        }
-      }
-
-      this._callPropsCallbacks();
+      this._commitHook();
     }
 
     componentWillUnmount() {
@@ -288,15 +273,13 @@ export default function createListComponent({
         outerElementType,
         style,
       } = this.props;
-      const { isScrolling, scrollOffset } = this.state;
+      const { isScrolling, startIndex, stopIndex } = this.state;
 
       const isHorizontal = layout === 'horizontal';
 
       const onScroll = isHorizontal
         ? this._onScrollHorizontal
         : this._onScrollVertical;
-
-      const [startIndex, stopIndex] = this._getRangeToRender(scrollOffset);
 
       const items = [];
       if (itemCount > 0) {
@@ -355,7 +338,6 @@ export default function createListComponent({
       }
 
       if (itemCount > 0) {
-        // const [startIndex, stopIndex] = this._getRangeToRender(scrollOffset);
         this._callPropsCallbacks();
       }
 
@@ -602,7 +584,7 @@ export default function createListComponent({
 
       this._prerenderOverscanRowsTimeoutID = requestTimeout(
         this._prerenderOverscanRows,
-        PRERENDER_DEBOUNCE_INTERVAL
+        IS_SCROLLING_DEBOUNCE_INTERVAL
       );
     }
 
@@ -617,7 +599,7 @@ export default function createListComponent({
           } = this.props;
 
           const [startIndex, stopIndex] = this._getRangeToRender(
-            prevState.scrollTop
+            prevState.scrollOffset
           );
 
           const numRowsPerViewport = stopIndex - startIndex;
