@@ -74,14 +74,6 @@ function createListComponent(_ref) {
           visibleStopIndex: visibleStopIndex
         });
       });
-      _this._callOnScroll = void 0;
-      _this._callOnScroll = memoizeOne(function (scrollDirection, scrollOffset, scrollUpdateWasRequested) {
-        return _this.props.onScroll({
-          scrollDirection: scrollDirection,
-          scrollOffset: scrollOffset,
-          scrollUpdateWasRequested: scrollUpdateWasRequested
-        });
-      });
       _this._getItemStyle = void 0;
 
       _this._getItemStyle = function (index) {
@@ -147,13 +139,11 @@ function createListComponent(_ref) {
       };
 
       var initialScrollOffset = props.initialScrollOffset;
-
-      var _scrollOffset = typeof initialScrollOffset === 'number' ? initialScrollOffset : 0;
-
+      var scrollOffset = typeof initialScrollOffset === 'number' ? initialScrollOffset : 0;
       _this.state = {
         instance: _assertThisInitialized(_this),
         scrollDirection: 'forward',
-        scrollOffset: _scrollOffset,
+        scrollOffset: scrollOffset,
         scrollUpdateWasRequested: typeof initialScrollOffset === 'number'
       };
       return _this;

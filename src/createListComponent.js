@@ -321,24 +321,6 @@ export default function createListComponent({
         })
     );
 
-    _callOnScroll: (
-      scrollDirection: ScrollDirection,
-      scrollOffset: number,
-      scrollUpdateWasRequested: boolean
-    ) => void;
-    _callOnScroll = memoizeOne(
-      (
-        scrollDirection: ScrollDirection,
-        scrollOffset: number,
-        scrollUpdateWasRequested: boolean
-      ) =>
-        ((this.props.onScroll: any): onScrollCallback)({
-          scrollDirection,
-          scrollOffset,
-          scrollUpdateWasRequested,
-        })
-    );
-
     _callPropsCallbacks() {
       if (typeof this.props.onItemsRendered === 'function') {
         const { itemCount } = this.props;
