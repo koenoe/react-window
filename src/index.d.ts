@@ -5,6 +5,7 @@
 //                 John Gozde <https://github.com/jgoz>
 // Definitions: https://github.com/DefinitelyTyped/DefinitelyTyped
 // TypeScript Version: 2.8
+declare module 'react-window-tv';
 
 import {
   Component,
