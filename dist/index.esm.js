@@ -34,7 +34,7 @@ function requestTimeout(callback, delay) {
   return timeoutID;
 }
 
-var IdlePriority = scheduler.unstable_IdlePriority,
+var NormalPriority = scheduler.unstable_NormalPriority,
     runWithPriority = scheduler.unstable_runWithPriority;
 var DEFAULT_MAX_NUM_PRERENDER_ROWS = 15;
 var DEBOUNCE_INTERVAL = 150;
@@ -149,7 +149,7 @@ function createListComponent(_ref) {
 
       _this._prerenderOverscanRows = function () {
         _this._prerenderOverscanRowsTimeoutID = null;
-        runWithPriority(IdlePriority, function () {
+        runWithPriority(NormalPriority, function () {
           _this.setState(function (prevState) {
             var _this$props2 = _this.props,
                 itemCount = _this$props2.itemCount,
