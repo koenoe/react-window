@@ -148,7 +148,7 @@ export default function createListComponent({
     _outerRef: ?HTMLDivElement;
     _innerRef: ?HTMLDivElement;
     _prerenderOverscanRowsTimeoutID: TimeoutID | null = null;
-    -_clearStyleCacheTimeoutID: TimeoutID | null = null;
+    _clearStyleCacheTimeoutID: TimeoutID | null = null;
 
     static defaultProps = {
       itemData: undefined,
@@ -492,6 +492,8 @@ export default function createListComponent({
     }
 
     _clearStyleCache() {
+      this._clearStyleCacheTimeoutID = null;
+
       // Clear style cache after state update has been committed.
       this._getItemStyleCache(-1, null);
     }

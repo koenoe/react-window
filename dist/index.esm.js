@@ -390,7 +390,8 @@ function createListComponent(_ref) {
     };
 
     _proto._clearStyleCache = function _clearStyleCache() {
-      // Clear style cache after state update has been committed.
+      this._clearStyleCacheTimeoutID = null; // Clear style cache after state update has been committed.
+
       this._getItemStyleCache(-1, null);
     };
 
