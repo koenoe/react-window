@@ -271,7 +271,7 @@ export default function createListComponent({
       } = this.props;
       const { scrollOffset, startIndex, stopIndex } = this.state;
 
-      const [visibleStartIndex, visibleStopIndex] = this._getRangeToRender(
+      const [, , visibleStartIndex, visibleStopIndex] = this._getRangeToRender(
         scrollOffset
       );
 
@@ -353,12 +353,21 @@ export default function createListComponent({
     }
 
     _callOnItemsRendered: (
+      overscanStartIndex: number,
+      overscanStopIndex: number,
       visibleStartIndex: number,
       visibleStopIndex: number
     ) => void;
     _callOnItemsRendered = memoizeOne(
-      (visibleStartIndex: number, visibleStopIndex: number) =>
+      (
+        overscanStartIndex: number,
+        overscanStopIndex: number,
+        visibleStartIndex: number,
+        visibleStopIndex: number
+      ) =>
         ((this.props.onItemsRendered: any): onItemsRenderedCallback)({
+          overscanStartIndex,
+          overscanStopIndex,
           visibleStartIndex,
           visibleStopIndex,
         })
@@ -369,10 +378,18 @@ export default function createListComponent({
         const { itemCount } = this.props;
         const { scrollOffset } = this.state;
         if (itemCount > 0) {
-          const [visibleStartIndex, visibleStopIndex] = this._getRangeToRender(
-            scrollOffset
+          const [
+            overscanStartIndex,
+            overscanStopIndex,
+            visibleStartIndex,
+            visibleStopIndex,
+          ] = this._getRangeToRender(scrollOffset);
+          this._callOnItemsRendered(
+            overscanStartIndex,
+            overscanStopIndex,
+            visibleStartIndex,
+            visibleStopIndex
           );
-          this._callOnItemsRendered(visibleStartIndex, visibleStopIndex);
         }
       }
     }
@@ -422,7 +439,7 @@ export default function createListComponent({
       const { scrollDirection } = this.state;
 
       if (itemCount === 0) {
-        return [0, 0];
+        return [0, 0, 0, 0];
       }
 
       const startIndex = getStartIndexForOffset(
@@ -445,6 +462,8 @@ export default function createListComponent({
       return [
         Math.max(0, startIndex - overscanBackward),
         Math.max(0, Math.min(itemCount - 1, stopIndex + overscanForward)),
+        startIndex,
+        stopIndex,
       ];
     }
 

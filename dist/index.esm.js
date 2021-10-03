@@ -78,8 +78,10 @@ function createListComponent(_ref) {
         scrollUpdateWasRequested: false
       };
       _this._callOnItemsRendered = void 0;
-      _this._callOnItemsRendered = memoizeOne(function (visibleStartIndex, visibleStopIndex) {
+      _this._callOnItemsRendered = memoizeOne(function (overscanStartIndex, overscanStopIndex, visibleStartIndex, visibleStopIndex) {
         return _this.props.onItemsRendered({
+          overscanStartIndex: overscanStartIndex,
+          overscanStopIndex: overscanStopIndex,
           visibleStartIndex: visibleStartIndex,
           visibleStopIndex: visibleStopIndex
         });
@@ -273,8 +275,8 @@ function createListComponent(_ref) {
           stopIndex = _this$state.stopIndex;
 
       var _this$_getRangeToRend3 = this._getRangeToRender(scrollOffset),
-          visibleStartIndex = _this$_getRangeToRend3[0],
-          visibleStopIndex = _this$_getRangeToRend3[1];
+          visibleStartIndex = _this$_getRangeToRend3[2],
+          visibleStopIndex = _this$_getRangeToRend3[3];
 
       var items = [];
 
@@ -358,10 +360,12 @@ function createListComponent(_ref) {
 
         if (itemCount > 0) {
           var _this$_getRangeToRend4 = this._getRangeToRender(_scrollOffset),
-              _visibleStartIndex = _this$_getRangeToRend4[0],
-              _visibleStopIndex = _this$_getRangeToRend4[1];
+              _overscanStartIndex = _this$_getRangeToRend4[0],
+              _overscanStopIndex = _this$_getRangeToRend4[1],
+              _visibleStartIndex = _this$_getRangeToRend4[2],
+              _visibleStopIndex = _this$_getRangeToRend4[3];
 
-          this._callOnItemsRendered(_visibleStartIndex, _visibleStopIndex);
+          this._callOnItemsRendered(_overscanStartIndex, _overscanStopIndex, _visibleStartIndex, _visibleStopIndex);
         }
       }
     } // Lazily create and cache item styles while scrolling,
@@ -377,14 +381,14 @@ function createListComponent(_ref) {
       var scrollDirection = this.state.scrollDirection;
 
       if (itemCount === 0) {
-        return [0, 0];
+        return [0, 0, 0, 0];
       }
 
       var startIndex = getStartIndexForOffset(this.props, scrollOffset, this._instanceProps);
       var stopIndex = getStopIndexForStartIndex(this.props, startIndex, scrollOffset, this._instanceProps);
       var overscanBackward = scrollDirection === 'backward' ? Math.max(1, overscanCount) : 1;
       var overscanForward = scrollDirection === 'forward' ? Math.max(1, overscanCount) : 1;
-      return [Math.max(0, startIndex - overscanBackward), Math.max(0, Math.min(itemCount - 1, stopIndex + overscanForward))];
+      return [Math.max(0, startIndex - overscanBackward), Math.max(0, Math.min(itemCount - 1, stopIndex + overscanForward)), startIndex, stopIndex];
     };
 
     _proto._clearStyleCacheDebounced = function _clearStyleCacheDebounced() {
