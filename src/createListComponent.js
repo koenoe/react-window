@@ -55,7 +55,6 @@ type PrerenderMode = 'none' | 'idle' | 'idle+debounce';
 
 const DEFAULT_MAX_NUM_PRERENDER_ROWS = 15;
 const DEBOUNCE_INTERVAL = 150;
-const DEFAULT_OVERSCAN_COUNT = 1;
 
 export type Props<T> = {|
   children: RenderComponent<T>,
@@ -73,7 +72,6 @@ export type Props<T> = {|
   onItemsRendered?: onItemsRenderedCallback,
   outerRef?: any,
   outerElementType?: string | React$AbstractComponent<OuterProps, any>,
-  overscanCount?: number,
   prerenderMode: PrerenderMode,
   style?: Object,
   width: number | string,
@@ -153,7 +151,6 @@ export default function createListComponent({
     static defaultProps = {
       itemData: undefined,
       layout: 'vertical',
-      overscanCount: DEFAULT_OVERSCAN_COUNT,
       maxNumPrerenderRows: DEFAULT_MAX_NUM_PRERENDER_ROWS,
     };
 
@@ -271,7 +268,7 @@ export default function createListComponent({
       } = this.props;
       const { scrollOffset, startIndex, stopIndex } = this.state;
 
-      const [, , visibleStartIndex, visibleStopIndex] = this._getRangeToRender(
+      const [visibleStartIndex, visibleStopIndex] = this._getRangeToRender(
         scrollOffset
       );
 
@@ -353,21 +350,12 @@ export default function createListComponent({
     }
 
     _callOnItemsRendered: (
-      overscanStartIndex: number,
-      overscanStopIndex: number,
       visibleStartIndex: number,
       visibleStopIndex: number
     ) => void;
     _callOnItemsRendered = memoizeOne(
-      (
-        overscanStartIndex: number,
-        overscanStopIndex: number,
-        visibleStartIndex: number,
-        visibleStopIndex: number
-      ) =>
+      (visibleStartIndex: number, visibleStopIndex: number) =>
         ((this.props.onItemsRendered: any): onItemsRenderedCallback)({
-          overscanStartIndex,
-          overscanStopIndex,
           visibleStartIndex,
           visibleStopIndex,
         })
@@ -378,18 +366,10 @@ export default function createListComponent({
         const { itemCount } = this.props;
         const { scrollOffset } = this.state;
         if (itemCount > 0) {
-          const [
-            overscanStartIndex,
-            overscanStopIndex,
-            visibleStartIndex,
-            visibleStopIndex,
-          ] = this._getRangeToRender(scrollOffset);
-          this._callOnItemsRendered(
-            overscanStartIndex,
-            overscanStopIndex,
-            visibleStartIndex,
-            visibleStopIndex
+          const [visibleStartIndex, visibleStopIndex] = this._getRangeToRender(
+            scrollOffset
           );
+          this._callOnItemsRendered(visibleStartIndex, visibleStopIndex);
         }
       }
     }
@@ -435,11 +415,10 @@ export default function createListComponent({
     _getItemStyleCache = memoizeOne((_: any, __: any, ___: any) => ({}));
 
     _getRangeToRender(scrollOffset: number): [number, number] {
-      const { itemCount, overscanCount } = this.props;
-      const { scrollDirection } = this.state;
+      const { itemCount } = this.props;
 
       if (itemCount === 0) {
-        return [0, 0, 0, 0];
+        return [0, 0];
       }
 
       const startIndex = getStartIndexForOffset(
@@ -454,16 +433,9 @@ export default function createListComponent({
         this._instanceProps
       );
 
-      const overscanBackward =
-        scrollDirection === 'backward' ? Math.max(1, overscanCount) : 1;
-      const overscanForward =
-        scrollDirection === 'forward' ? Math.max(1, overscanCount) : 1;
-
       return [
-        Math.max(0, startIndex - overscanBackward),
-        Math.max(0, Math.min(itemCount - 1, stopIndex + overscanForward)),
-        startIndex,
-        stopIndex,
+        Math.max(0, startIndex - 1),
+        Math.max(0, Math.min(itemCount - 1, stopIndex + 1)),
       ];
     }
 
