@@ -178,7 +178,7 @@ export default function createListComponent({
         return {
           scrollDirection:
             prevState.scrollOffset < scrollOffset ? 'forward' : 'backward',
-          scrollOffset: scrollOffset,
+          scrollOffset,
           scrollUpdateWasRequested: true,
         };
       });
@@ -295,7 +295,7 @@ export default function createListComponent({
       }
 
       // Clear style cache after scrolling has stopped.
-      // This enables us to cache during the most perfrormance sensitive times (when scrolling)
+      // This enables us to cache during the most performance sensitive times (when scrolling)
       // while also preventing the cache from growing unbounded.
       this._clearStyleCacheDebounced();
     }
