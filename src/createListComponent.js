@@ -281,8 +281,8 @@ export default function createListComponent({
             createElement(children, {
               data: itemData,
               hidden,
-              key: itemKey(index, itemData),
               index,
+              key: itemKey(index, itemData),
               style: this._getItemStyle(index),
             })
           );

@@ -289,8 +289,8 @@ function createListComponent(_ref) {
           items.push(react.createElement(children, {
             data: itemData,
             hidden: hidden,
-            key: itemKey(_index, itemData),
             index: _index,
+            key: itemKey(_index, itemData),
             style: this._getItemStyle(_index)
           }));
         }
