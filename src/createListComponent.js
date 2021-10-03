@@ -491,12 +491,12 @@ export default function createListComponent({
       );
     }
 
-    _clearStyleCache() {
+    _clearStyleCache = () => {
       this._clearStyleCacheTimeoutID = null;
 
       // Clear style cache after state update has been committed.
       this._getItemStyleCache(-1, null);
-    }
+    };
 
     _prerenderOverscanRowsDebounced() {
       if (this._prerenderOverscanRowsTimeoutID !== null) {

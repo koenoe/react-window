@@ -142,6 +142,12 @@ function createListComponent(_ref) {
         }
       };
 
+      _this._clearStyleCache = function () {
+        _this._clearStyleCacheTimeoutID = null; // Clear style cache after state update has been committed.
+
+        _this._getItemStyleCache(-1, null);
+      };
+
       _this._prerenderOverscanRows = function () {
         _this._prerenderOverscanRowsTimeoutID = null;
         runWithPriority(IdlePriority, function () {
@@ -387,12 +393,6 @@ function createListComponent(_ref) {
       }
 
       this._clearStyleCacheTimeoutID = requestTimeout(this._clearStyleCache, DEBOUNCE_INTERVAL);
-    };
-
-    _proto._clearStyleCache = function _clearStyleCache() {
-      this._clearStyleCacheTimeoutID = null; // Clear style cache after state update has been committed.
-
-      this._getItemStyleCache(-1, null);
     };
 
     _proto._prerenderOverscanRowsDebounced = function _prerenderOverscanRowsDebounced() {
