@@ -72,7 +72,7 @@ export type Props<T> = {|
   onItemsRendered?: onItemsRenderedCallback,
   outerRef?: any,
   outerElementType?: string | React$AbstractComponent<OuterProps, any>,
-  prerenderMode: PrerenderMode,
+  prerenderMode?: PrerenderMode,
   style?: Object,
   width: number | string,
 |};

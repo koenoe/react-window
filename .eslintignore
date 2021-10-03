@@ -5,3 +5,4 @@ website/src/code
 node_modules
 package-lock.json
 yarn.lock
+src/index.d.ts
