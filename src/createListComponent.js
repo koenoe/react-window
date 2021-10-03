@@ -11,7 +11,7 @@ import { cancelTimeout, requestTimeout } from './timer';
 import type { TimeoutID } from './timer';
 
 const {
-  unstable_NormalPriority: NormalPriority,
+  unstable_IdlePriority: IdlePriority,
   unstable_runWithPriority: runWithPriority,
 } = scheduler;
 
@@ -503,7 +503,7 @@ export default function createListComponent({
     _prerenderOverscanRows = () => {
       this._prerenderOverscanRowsTimeoutID = null;
 
-      runWithPriority(NormalPriority, () => {
+      runWithPriority(IdlePriority, () => {
         this.setState(prevState => {
           const { itemCount, maxNumPrerenderRows } = this.props;
 
