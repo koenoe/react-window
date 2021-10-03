@@ -26,7 +26,6 @@ type Style = {
 type RenderComponentProps<T> = {|
   data: T,
   index: number,
-  isScrolling?: boolean,
   hidden: boolean,
   style: Style,
 |};
@@ -38,19 +37,12 @@ type onItemsRenderedCallback = ({
   visibleStartIndex: number,
   visibleStopIndex: number,
 }) => void;
-type onScrollCallback = ({
-  scrollDirection: ScrollDirection,
-  scrollOffset: number,
-  scrollUpdateWasRequested: boolean,
-}) => void;
 
-type ScrollEvent = SyntheticEvent<HTMLDivElement>;
 type ItemStyleCache = { [index: number]: Object };
 
 type OuterProps = {|
   children: React$Node,
   className: string | void,
-  onScroll: ScrollEvent => void,
   style: Style,
 |};
 
@@ -61,14 +53,9 @@ type InnerProps = {|
 
 type PrerenderMode = 'none' | 'idle' | 'idle+debounce';
 
-// Polyfill flushSync for older React versions.
-// const flushSync =
-//   typeof maybeFlushSync === 'function'
-//     ? maybeFlushSync
-//     : callback => callback();
-
 const DEFAULT_MAX_NUM_PRERENDER_ROWS = 15;
-const IS_SCROLLING_DEBOUNCE_INTERVAL = 150;
+const DEBOUNCE_INTERVAL = 150;
+const DEFAULT_OVERSCAN_COUNT = 1;
 
 export type Props<T> = {|
   children: RenderComponent<T>,
@@ -84,9 +71,9 @@ export type Props<T> = {|
   maxNumPrerenderRows?: number,
   layout: Layout,
   onItemsRendered?: onItemsRenderedCallback,
-  onScroll?: onScrollCallback,
   outerRef?: any,
   outerElementType?: string | React$AbstractComponent<OuterProps, any>,
+  overscanCount?: number,
   prerenderMode: PrerenderMode,
   style?: Object,
   width: number | string,
@@ -94,7 +81,6 @@ export type Props<T> = {|
 
 type State = {|
   instance: any,
-  isScrolling: boolean,
   scrollDirection: ScrollDirection,
   scrollOffset: number,
   scrollUpdateWasRequested: boolean,
@@ -161,8 +147,8 @@ export default function createListComponent({
     _instanceProps: any = initInstanceProps(this.props, this);
     _outerRef: ?HTMLDivElement;
     _innerRef: ?HTMLDivElement;
-    _resetIsScrollingTimeoutId: TimeoutID | null = null;
     _prerenderOverscanRowsTimeoutID: TimeoutID | null = null;
+    -_clearStyleCacheTimeoutID: TimeoutID | null = null;
 
     static defaultProps = {
       itemData: undefined,
@@ -184,7 +170,6 @@ export default function createListComponent({
 
       this.state = {
         instance: this,
-        isScrolling: false,
         scrollDirection: 'forward',
         scrollOffset,
         scrollUpdateWasRequested: typeof initialScrollOffset === 'number',
@@ -224,7 +209,7 @@ export default function createListComponent({
           startIndex: isSubset ? prevState.startIndex : startIndex,
           stopIndex: isSubset ? prevState.stopIndex : stopIndex,
         };
-      }, this._resetIsScrollingDebounced);
+      });
     }
 
     scrollToItem(index: number, align: ScrollToAlign = 'auto'): void {
@@ -253,11 +238,11 @@ export default function createListComponent({
     }
 
     componentWillUnmount() {
-      if (this._resetIsScrollingTimeoutId !== null) {
-        cancelTimeout(this._resetIsScrollingTimeoutId);
-      }
       if (this._prerenderOverscanRowsTimeoutID !== null) {
         cancelTimeout(this._prerenderOverscanRowsTimeoutID);
+      }
+      if (this._clearStyleCacheTimeoutID !== null) {
+        cancelTimeout(this._clearStyleCacheTimeoutID);
       }
     }
 
@@ -269,17 +254,10 @@ export default function createListComponent({
         itemCount,
         itemData,
         itemKey = defaultItemKey,
-        layout,
         outerElementType,
         style,
       } = this.props;
-      const { isScrolling, scrollOffset, startIndex, stopIndex } = this.state;
-
-      const isHorizontal = layout === 'horizontal';
-
-      const onScroll = isHorizontal
-        ? this._onScrollHorizontal
-        : this._onScrollVertical;
+      const { scrollOffset, startIndex, stopIndex } = this.state;
 
       const [visibleStartIndex, visibleStopIndex] = this._getRangeToRender(
         scrollOffset
@@ -296,7 +274,6 @@ export default function createListComponent({
               hidden,
               key: itemKey(index, itemData),
               index,
-              isScrolling,
               style: this._getItemStyle(index),
             })
           );
@@ -307,7 +284,6 @@ export default function createListComponent({
         outerElementType || 'div',
         {
           className,
-          onScroll,
           ref: this._outerRefSetter,
           style: {
             position: 'relative',
@@ -348,6 +324,8 @@ export default function createListComponent({
         this._callPropsCallbacks();
       }
 
+      this._clearStyleCacheDebounced();
+
       // Schedule an update to pre-render rows at idle priority.
       // This will make the list more responsive to subsequent scrolling.
       if (typeof runWithPriority === 'function') {
@@ -371,24 +349,6 @@ export default function createListComponent({
         })
     );
 
-    _callOnScroll: (
-      scrollDirection: ScrollDirection,
-      scrollOffset: number,
-      scrollUpdateWasRequested: boolean
-    ) => void;
-    _callOnScroll = memoizeOne(
-      (
-        scrollDirection: ScrollDirection,
-        scrollOffset: number,
-        scrollUpdateWasRequested: boolean
-      ) =>
-        ((this.props.onScroll: any): onScrollCallback)({
-          scrollDirection,
-          scrollOffset,
-          scrollUpdateWasRequested,
-        })
-    );
-
     _callPropsCallbacks() {
       if (typeof this.props.onItemsRendered === 'function') {
         const { itemCount } = this.props;
@@ -399,19 +359,6 @@ export default function createListComponent({
           );
           this._callOnItemsRendered(visibleStartIndex, visibleStopIndex);
         }
-      }
-
-      if (typeof this.props.onScroll === 'function') {
-        const {
-          scrollDirection,
-          scrollOffset,
-          scrollUpdateWasRequested,
-        } = this.state;
-        this._callOnScroll(
-          scrollDirection,
-          scrollOffset,
-          scrollUpdateWasRequested
-        );
       }
     }
 
@@ -456,7 +403,8 @@ export default function createListComponent({
     _getItemStyleCache = memoizeOne((_: any, __: any, ___: any) => ({}));
 
     _getRangeToRender(scrollOffset: number): [number, number] {
-      const { itemCount } = this.props;
+      const { itemCount, overscanCount = DEFAULT_OVERSCAN_COUNT } = this.props;
+      const { scrollDirection } = this.state;
 
       if (itemCount === 0) {
         return [0, 0];
@@ -474,83 +422,16 @@ export default function createListComponent({
         this._instanceProps
       );
 
-      // Overscan by one item in each direction so that tab/focus works.
-      // If there isn't at least one extra item, tab loops back around.
+      const overscanBackward =
+        scrollDirection === 'backward' ? Math.max(1, overscanCount) : 1;
+      const overscanForward =
+        scrollDirection === 'forward' ? Math.max(1, overscanCount) : 1;
+
       return [
-        Math.max(0, startIndex - 1),
-        Math.max(0, Math.min(itemCount - 1, stopIndex + 1)),
+        Math.max(0, startIndex - overscanBackward),
+        Math.max(0, Math.min(itemCount - 1, stopIndex + overscanForward)),
       ];
     }
-
-    _onScrollHorizontal = (event: ScrollEvent): void => {
-      const { clientWidth, scrollLeft, scrollWidth } = event.currentTarget;
-      this.setState(prevState => {
-        if (prevState.scrollOffset === scrollLeft) {
-          // Scroll position may have been updated by cDM/cDU,
-          // In which case we don't need to trigger another render,
-          // And we don't want to update state.isScrolling.
-          return null;
-        }
-
-        let scrollOffset = scrollLeft;
-
-        // Prevent Safari's elastic scrolling from causing visual shaking when scrolling past bounds.
-        scrollOffset = Math.max(
-          0,
-          Math.min(scrollOffset, scrollWidth - clientWidth)
-        );
-
-        const [startIndex, stopIndex] = this._getRangeToRender(scrollOffset);
-
-        const isSubset =
-          startIndex >= prevState.startIndex &&
-          stopIndex <= prevState.stopIndex;
-
-        return {
-          isScrolling: true,
-          scrollDirection:
-            prevState.scrollOffset < scrollLeft ? 'forward' : 'backward',
-          scrollOffset,
-          scrollUpdateWasRequested: false,
-          startIndex: isSubset ? prevState.startIndex : startIndex,
-          stopIndex: isSubset ? prevState.stopIndex : stopIndex,
-        };
-      }, this._resetIsScrollingDebounced);
-    };
-
-    _onScrollVertical = (event: ScrollEvent): void => {
-      const { clientHeight, scrollHeight, scrollTop } = event.currentTarget;
-      this.setState(prevState => {
-        if (prevState.scrollOffset === scrollTop) {
-          // Scroll position may have been updated by cDM/cDU,
-          // In which case we don't need to trigger another render,
-          // And we don't want to update state.isScrolling.
-          return null;
-        }
-
-        // Prevent Safari's elastic scrolling from causing visual shaking when scrolling past bounds.
-        const scrollOffset = Math.max(
-          0,
-          Math.min(scrollTop, scrollHeight - clientHeight)
-        );
-
-        const [startIndex, stopIndex] = this._getRangeToRender(scrollOffset);
-
-        const isSubset =
-          startIndex >= prevState.startIndex &&
-          stopIndex <= prevState.stopIndex;
-
-        return {
-          isScrolling: true,
-          scrollDirection:
-            prevState.scrollOffset < scrollOffset ? 'forward' : 'backward',
-          scrollOffset,
-          scrollUpdateWasRequested: false,
-          startIndex: isSubset ? prevState.startIndex : startIndex,
-          stopIndex: isSubset ? prevState.stopIndex : stopIndex,
-        };
-      }, this._resetIsScrollingDebounced);
-    };
 
     _outerRefSetter = (ref: any): void => {
       const { outerRef } = this.props;
@@ -584,6 +465,22 @@ export default function createListComponent({
       }
     };
 
+    _clearStyleCacheDebounced() {
+      if (this._clearStyleCacheTimeoutID !== null) {
+        cancelTimeout(this._clearStyleCacheTimeoutID);
+      }
+
+      this._clearStyleCacheTimeoutID = requestTimeout(
+        this._clearStyleCache,
+        DEBOUNCE_INTERVAL
+      );
+    }
+
+    _clearStyleCache() {
+      // Clear style cache after state update has been committed.
+      this._getItemStyleCache(-1, null);
+    }
+
     _prerenderOverscanRowsDebounced() {
       if (this._prerenderOverscanRowsTimeoutID !== null) {
         cancelTimeout(this._prerenderOverscanRowsTimeoutID);
@@ -591,7 +488,7 @@ export default function createListComponent({
 
       this._prerenderOverscanRowsTimeoutID = requestTimeout(
         this._prerenderOverscanRows,
-        IS_SCROLLING_DEBOUNCE_INTERVAL
+        DEBOUNCE_INTERVAL
       );
     }
 
@@ -633,27 +530,6 @@ export default function createListComponent({
             stopIndex: nextStopIndex,
           };
         });
-      });
-    };
-
-    _resetIsScrollingDebounced = () => {
-      if (this._resetIsScrollingTimeoutId !== null) {
-        cancelTimeout(this._resetIsScrollingTimeoutId);
-      }
-
-      this._resetIsScrollingTimeoutId = requestTimeout(
-        this._resetIsScrolling,
-        IS_SCROLLING_DEBOUNCE_INTERVAL
-      );
-    };
-
-    _resetIsScrolling = () => {
-      this._resetIsScrollingTimeoutId = null;
-
-      this.setState({ isScrolling: false }, () => {
-        // Clear style cache after state update has been committed.
-        // This way we don't break pure sCU for items that don't use isScrolling param.
-        this._getItemStyleCache(-1, null);
       });
     };
   };
