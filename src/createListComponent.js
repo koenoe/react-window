@@ -153,6 +153,18 @@ export default function createListComponent({
     static defaultProps = {
       itemData: undefined,
       layout: 'vertical',
+      overscanCount: DEFAULT_OVERSCAN_COUNT,
+      maxNumPrerenderRows: DEFAULT_MAX_NUM_PRERENDER_ROWS,
+    };
+
+    state: State = {
+      instance: this,
+      scrollDirection: 'forward',
+      scrollOffset:
+        typeof this.props.initialScrollOffset === 'number'
+          ? this.props.initialScrollOffset
+          : 0,
+      scrollUpdateWasRequested: false,
     };
 
     // Always use explicit constructor for React components.
@@ -324,6 +336,9 @@ export default function createListComponent({
         this._callPropsCallbacks();
       }
 
+      // Clear style cache after scrolling has stopped.
+      // This enables us to cache during the most perfrormance sensitive times (when scrolling)
+      // while also preventing the cache from growing unbounded.
       this._clearStyleCacheDebounced();
 
       // Schedule an update to pre-render rows at idle priority.
@@ -403,7 +418,7 @@ export default function createListComponent({
     _getItemStyleCache = memoizeOne((_: any, __: any, ___: any) => ({}));
 
     _getRangeToRender(scrollOffset: number): [number, number] {
-      const { itemCount, overscanCount = DEFAULT_OVERSCAN_COUNT } = this.props;
+      const { itemCount, overscanCount } = this.props;
       const { scrollDirection } = this.state;
 
       if (itemCount === 0) {
@@ -497,10 +512,7 @@ export default function createListComponent({
 
       runWithPriority(IdlePriority, () => {
         this.setState(prevState => {
-          const {
-            itemCount,
-            maxNumPrerenderRows = DEFAULT_MAX_NUM_PRERENDER_ROWS,
-          } = this.props;
+          const { itemCount, maxNumPrerenderRows } = this.props;
 
           const [startIndex, stopIndex] = this._getRangeToRender(
             prevState.scrollOffset

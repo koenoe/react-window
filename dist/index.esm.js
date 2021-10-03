@@ -71,6 +71,12 @@ function createListComponent(_ref) {
       _this._innerRef = void 0;
       _this._prerenderOverscanRowsTimeoutID = null;
       _this._clearStyleCacheTimeoutID = null;
+      _this.state = {
+        instance: _assertThisInitialized(_this),
+        scrollDirection: 'forward',
+        scrollOffset: typeof _this.props.initialScrollOffset === 'number' ? _this.props.initialScrollOffset : 0,
+        scrollUpdateWasRequested: false
+      };
       _this._callOnItemsRendered = void 0;
       _this._callOnItemsRendered = memoizeOne(function (visibleStartIndex, visibleStopIndex) {
         return _this.props.onItemsRendered({
@@ -142,8 +148,7 @@ function createListComponent(_ref) {
           _this.setState(function (prevState) {
             var _this$props2 = _this.props,
                 itemCount = _this$props2.itemCount,
-                _this$props2$maxNumPr = _this$props2.maxNumPrerenderRows,
-                maxNumPrerenderRows = _this$props2$maxNumPr === void 0 ? DEFAULT_MAX_NUM_PRERENDER_ROWS : _this$props2$maxNumPr;
+                maxNumPrerenderRows = _this$props2.maxNumPrerenderRows;
 
             var _this$_getRangeToRend = _this._getRangeToRender(prevState.scrollOffset),
                 startIndex = _this$_getRangeToRend[0],
@@ -322,7 +327,10 @@ function createListComponent(_ref) {
 
       if (itemCount > 0) {
         this._callPropsCallbacks();
-      }
+      } // Clear style cache after scrolling has stopped.
+      // This enables us to cache during the most perfrormance sensitive times (when scrolling)
+      // while also preventing the cache from growing unbounded.
+
 
       this._clearStyleCacheDebounced(); // Schedule an update to pre-render rows at idle priority.
       // This will make the list more responsive to subsequent scrolling.
@@ -359,8 +367,7 @@ function createListComponent(_ref) {
     _proto._getRangeToRender = function _getRangeToRender(scrollOffset) {
       var _this$props5 = this.props,
           itemCount = _this$props5.itemCount,
-          _this$props5$overscan = _this$props5.overscanCount,
-          overscanCount = _this$props5$overscan === void 0 ? DEFAULT_OVERSCAN_COUNT : _this$props5$overscan;
+          overscanCount = _this$props5.overscanCount;
       var scrollDirection = this.state.scrollDirection;
 
       if (itemCount === 0) {
@@ -398,7 +405,9 @@ function createListComponent(_ref) {
     return List;
   }(PureComponent), _class.defaultProps = {
     itemData: undefined,
-    layout: 'vertical'
+    layout: 'vertical',
+    overscanCount: DEFAULT_OVERSCAN_COUNT,
+    maxNumPrerenderRows: DEFAULT_MAX_NUM_PRERENDER_ROWS
   }, _temp;
 } // NOTE: I considered further wrapping individual items with a pure ListItem component.
 // This would avoid ever calling the render function for the same index more than once,
