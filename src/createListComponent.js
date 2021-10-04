@@ -54,7 +54,7 @@ type InnerProps = {|
 type PrerenderMode = 'none' | 'idle' | 'idle+debounce';
 
 const DEFAULT_MAX_NUM_PRERENDER_ROWS = 15;
-const DEBOUNCE_INTERVAL = 150;
+const DEBOUNCE_INTERVAL = 100;
 
 export type Props<T> = {|
   children: RenderComponent<T>,

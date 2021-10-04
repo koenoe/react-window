@@ -37,7 +37,7 @@ function requestTimeout(callback, delay) {
 var IdlePriority = scheduler.unstable_IdlePriority,
     runWithPriority = scheduler.unstable_runWithPriority;
 var DEFAULT_MAX_NUM_PRERENDER_ROWS = 15;
-var DEBOUNCE_INTERVAL = 150;
+var DEBOUNCE_INTERVAL = 100;
 
 var defaultItemKey = function defaultItemKey(index, data) {
   return index;
