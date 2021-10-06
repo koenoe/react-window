@@ -36,8 +36,9 @@ function requestTimeout(callback, delay) {
 
 var IdlePriority = scheduler.unstable_IdlePriority,
     runWithPriority = scheduler.unstable_runWithPriority;
-var DEFAULT_MAX_NUM_PRERENDER_ROWS = 15;
+var DEFAULT_MAX_NUM_PRERENDER_ROWS = 20;
 var DEBOUNCE_INTERVAL = 100;
+var OVERSCAN_COUNT = 1;
 
 var defaultItemKey = function defaultItemKey(index, data) {
   return index;
@@ -66,8 +67,7 @@ function createListComponent(_ref) {
 
       _this = _PureComponent.call(this, props) || this;
       _this._instanceProps = initInstanceProps(_this.props, _assertThisInitialized(_this));
-      _this._outerRef = void 0;
-      _this._innerRef = void 0;
+      _this._containerRef = void 0;
       _this._prerenderOverscanRowsTimeoutID = null;
       _this._clearStyleCacheTimeoutID = null;
       _this.state = {
@@ -119,25 +119,14 @@ function createListComponent(_ref) {
         return {};
       });
 
-      _this._outerRefSetter = function (ref) {
-        var outerRef = _this.props.outerRef;
-        _this._outerRef = ref;
+      _this._containerRefSetter = function (ref) {
+        var containerRef = _this.props.containerRef;
+        _this._containerRef = ref;
 
-        if (typeof outerRef === 'function') {
-          outerRef(ref);
-        } else if (outerRef != null && typeof outerRef === 'object' && outerRef.hasOwnProperty('current')) {
-          outerRef.current = ref;
-        }
-      };
-
-      _this._innerRefSetter = function (ref) {
-        var innerRef = _this.props.innerRef;
-        _this._innerRef = ref;
-
-        if (typeof innerRef === 'function') {
-          innerRef(ref);
-        } else if (innerRef != null && typeof innerRef === 'object' && innerRef.hasOwnProperty('current')) {
-          innerRef.current = ref;
+        if (typeof containerRef === 'function') {
+          containerRef(ref);
+        } else if (containerRef != null && typeof containerRef === 'object' && containerRef.hasOwnProperty('current')) {
+          containerRef.current = ref;
         }
       };
 
@@ -259,12 +248,11 @@ function createListComponent(_ref) {
       var _this$props3 = this.props,
           children = _this$props3.children,
           className = _this$props3.className,
-          innerElementType = _this$props3.innerElementType,
+          containerElementType = _this$props3.containerElementType,
           itemCount = _this$props3.itemCount,
           itemData = _this$props3.itemData,
           _this$props3$itemKey = _this$props3.itemKey,
           itemKey = _this$props3$itemKey === void 0 ? defaultItemKey : _this$props3$itemKey,
-          outerElementType = _this$props3.outerElementType,
           style = _this$props3.style;
       var _this$state = this.state,
           scrollOffset = _this$state.scrollOffset,
@@ -290,25 +278,17 @@ function createListComponent(_ref) {
         }
       }
 
-      return createElement(outerElementType || 'div', {
+      return createElement(containerElementType || 'div', {
         className: className,
-        ref: this._outerRefSetter,
-        style: _extends({
-          position: 'relative',
-          WebkitOverflowScrolling: 'touch',
-          willChange: 'transform',
-          contain: 'layout'
-        }, style)
-      }, createElement(innerElementType || 'div', {
         children: items,
-        ref: this._innerRefSetter,
-        style: {
+        ref: this._containerRefSetter,
+        style: _extends({
           position: 'relative',
           willChange: 'transform',
           contain: 'layout',
           pointerEvents: 'none'
-        }
-      }));
+        }, style)
+      });
     };
 
     _proto._commitHook = function _commitHook() {
@@ -320,13 +300,13 @@ function createListComponent(_ref) {
           scrollOffset = _this$state2.scrollOffset,
           scrollUpdateWasRequested = _this$state2.scrollUpdateWasRequested;
 
-      if (scrollUpdateWasRequested && this._innerRef != null) {
-        var innerRef = this._innerRef;
+      if (scrollUpdateWasRequested && this._containerRef != null) {
+        var containerRef = this._containerRef;
 
         if (layout === 'horizontal') {
-          innerRef.style.transform = "translate3d(-" + scrollOffset + "px, 0px, 0px)";
+          containerRef.style.transform = "translate3d(-" + scrollOffset + "px, 0px, 0px)";
         } else {
-          innerRef.style.transform = "translate3d(0px, -" + scrollOffset + "px, 0px)";
+          containerRef.style.transform = "translate3d(0px, -" + scrollOffset + "px, 0px)";
         }
       }
 
@@ -378,7 +358,7 @@ function createListComponent(_ref) {
 
       var startIndex = getStartIndexForOffset(this.props, scrollOffset, this._instanceProps);
       var stopIndex = getStopIndexForStartIndex(this.props, startIndex, scrollOffset, this._instanceProps);
-      return [Math.max(0, startIndex - 1), Math.max(0, Math.min(itemCount - 1, stopIndex + 1))];
+      return [Math.max(0, startIndex - OVERSCAN_COUNT), Math.max(0, Math.min(itemCount - 1, stopIndex + OVERSCAN_COUNT))];
     };
 
     _proto._clearStyleCacheDebounced = function _clearStyleCacheDebounced() {
@@ -413,8 +393,6 @@ var validateSharedProps = function validateSharedProps(_ref2, _ref3) {
   var children = _ref2.children,
       height = _ref2.height,
       layout = _ref2.layout,
-      innerTagName = _ref2.innerTagName,
-      outerTagName = _ref2.outerTagName,
       width = _ref2.width;
   var instance = _ref3.instance;
 

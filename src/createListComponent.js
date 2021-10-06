@@ -40,20 +40,14 @@ type onItemsRenderedCallback = ({
 
 type ItemStyleCache = { [index: number]: Object };
 
-type OuterProps = {|
-  children: React$Node,
-  className: string | void,
-  style: Style,
-|};
-
-type InnerProps = {|
+type containerProps = {|
   children: React$Node,
   style: Style,
 |};
 
 type PrerenderMode = 'none' | 'idle' | 'idle+debounce';
 
-const DEFAULT_MAX_NUM_PRERENDER_ROWS = 15;
+const DEFAULT_MAX_NUM_PRERENDER_ROWS = 20;
 const DEBOUNCE_INTERVAL = 100;
 
 export type Props<T> = {|
@@ -61,8 +55,8 @@ export type Props<T> = {|
   className?: string,
   height: number | string,
   initialScrollOffset?: number,
-  innerRef?: any,
-  innerElementType?: string | React$AbstractComponent<InnerProps, any>,
+  containerRef?: any,
+  containerElementType?: string | React$AbstractComponent<containerProps, any>,
   itemCount: number,
   itemData: T,
   itemKey?: (index: number, data: T) => any,
@@ -70,8 +64,6 @@ export type Props<T> = {|
   maxNumPrerenderRows?: number,
   layout: Layout,
   onItemsRendered?: onItemsRenderedCallback,
-  outerRef?: any,
-  outerElementType?: string | React$AbstractComponent<OuterProps, any>,
   prerenderMode?: PrerenderMode,
   style?: Object,
   width: number | string,
@@ -143,8 +135,7 @@ export default function createListComponent({
 |}) {
   return class List<T> extends PureComponent<Props<T>, State> {
     _instanceProps: any = initInstanceProps(this.props, this);
-    _outerRef: ?HTMLDivElement;
-    _innerRef: ?HTMLDivElement;
+    _containerRef: ?HTMLDivElement;
     _prerenderOverscanRowsTimeoutID: TimeoutID | null = null;
     _clearStyleCacheTimeoutID: TimeoutID | null = null;
 
@@ -259,11 +250,10 @@ export default function createListComponent({
       const {
         children,
         className,
-        innerElementType,
+        containerElementType,
         itemCount,
         itemData,
         itemKey = defaultItemKey,
-        outerElementType,
         style,
       } = this.props;
       const { scrollOffset, startIndex, stopIndex } = this.state;
@@ -289,43 +279,31 @@ export default function createListComponent({
         }
       }
 
-      return createElement(
-        outerElementType || 'div',
-        {
-          className,
-          ref: this._outerRefSetter,
-          style: {
-            position: 'relative',
-            WebkitOverflowScrolling: 'touch',
-            willChange: 'transform',
-            contain: 'layout',
-            ...style,
-          },
+      return createElement(containerElementType || 'div', {
+        className,
+        children: items,
+        ref: this._containerRefSetter,
+        style: {
+          position: 'relative',
+          willChange: 'transform',
+          contain: 'layout',
+          pointerEvents: 'none',
+          ...style,
         },
-        createElement(innerElementType || 'div', {
-          children: items,
-          ref: this._innerRefSetter,
-          style: {
-            position: 'relative',
-            willChange: 'transform',
-            contain: 'layout',
-            pointerEvents: 'none',
-          },
-        })
-      );
+      });
     }
 
     _commitHook() {
       const { layout, itemCount, prerenderMode } = this.props;
       const { scrollOffset, scrollUpdateWasRequested } = this.state;
 
-      if (scrollUpdateWasRequested && this._innerRef != null) {
-        const innerRef = ((this._innerRef: any): HTMLElement);
+      if (scrollUpdateWasRequested && this._containerRef != null) {
+        const containerRef = ((this._containerRef: any): HTMLElement);
 
         if (layout === 'horizontal') {
-          innerRef.style.transform = `translate3d(-${scrollOffset}px, 0px, 0px)`;
+          containerRef.style.transform = `translate3d(-${scrollOffset}px, 0px, 0px)`;
         } else {
-          innerRef.style.transform = `translate3d(0px, -${scrollOffset}px, 0px)`;
+          containerRef.style.transform = `translate3d(0px, -${scrollOffset}px, 0px)`;
         }
       }
 
@@ -439,35 +417,19 @@ export default function createListComponent({
       ];
     }
 
-    _outerRefSetter = (ref: any): void => {
-      const { outerRef } = this.props;
+    _containerRefSetter = (ref: any): void => {
+      const { containerRef } = this.props;
 
-      this._outerRef = ((ref: any): HTMLDivElement);
+      this._containerRef = ((ref: any): HTMLDivElement);
 
-      if (typeof outerRef === 'function') {
-        outerRef(ref);
+      if (typeof containerRef === 'function') {
+        containerRef(ref);
       } else if (
-        outerRef != null &&
-        typeof outerRef === 'object' &&
-        outerRef.hasOwnProperty('current')
+        containerRef != null &&
+        typeof containerRef === 'object' &&
+        containerRef.hasOwnProperty('current')
       ) {
-        outerRef.current = ref;
-      }
-    };
-
-    _innerRefSetter = (ref: any): void => {
-      const { innerRef } = this.props;
-
-      this._innerRef = ((ref: any): HTMLDivElement);
-
-      if (typeof innerRef === 'function') {
-        innerRef(ref);
-      } else if (
-        innerRef != null &&
-        typeof innerRef === 'object' &&
-        innerRef.hasOwnProperty('current')
-      ) {
-        innerRef.current = ref;
+        containerRef.current = ref;
       }
     };
 
@@ -547,7 +509,7 @@ export default function createListComponent({
 // So my doing it would just unnecessarily double the wrappers.
 
 const validateSharedProps = (
-  { children, height, layout, innerTagName, outerTagName, width }: Props<any>,
+  { children, height, layout, width }: Props<any>,
   { instance }: State
 ): void => {
   if (process.env.NODE_ENV !== 'production') {
