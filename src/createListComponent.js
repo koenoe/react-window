@@ -1,19 +1,10 @@
 // @flow
 import memoizeOne from 'memoize-one';
 import { createElement, PureComponent } from 'react';
-// $FlowFixMe
-// import { flushSync as maybeFlushSync } from 'react-dom';
-
-import scheduler from 'scheduler';
 
 import { cancelTimeout, requestTimeout } from './timer';
 
 import type { TimeoutID } from './timer';
-
-const {
-  unstable_IdlePriority: IdlePriority,
-  unstable_runWithPriority: runWithPriority,
-} = scheduler;
 
 export type ScrollToAlign = 'auto' | 'smart' | 'center' | 'start' | 'end';
 
@@ -34,6 +25,8 @@ type RenderComponent<T> = React$ComponentType<$Shape<RenderComponentProps<T>>>;
 type ScrollDirection = 'forward' | 'backward';
 
 type onItemsRenderedCallback = ({
+  overscanStartIndex: number,
+  overscanStopIndex: number,
   visibleStartIndex: number,
   visibleStopIndex: number,
 }) => void;
@@ -45,9 +38,7 @@ type containerProps = {|
   style: Style,
 |};
 
-type PrerenderMode = 'none' | 'idle' | 'idle+debounce';
-
-const DEFAULT_MAX_NUM_PRERENDER_ROWS = 20;
+const DEFAULT_OVERSCAN_COUNT = 5;
 const DEBOUNCE_INTERVAL = 100;
 
 export type Props<T> = {|
@@ -61,10 +52,9 @@ export type Props<T> = {|
   itemData: T,
   itemKey?: (index: number, data: T) => any,
   itemSize: itemSize,
-  maxNumPrerenderRows?: number,
+  overscanCount?: number,
   layout: Layout,
   onItemsRendered?: onItemsRenderedCallback,
-  prerenderMode?: PrerenderMode,
   style?: Object,
   width: number | string,
 |};
@@ -136,13 +126,12 @@ export default function createListComponent({
   return class List<T> extends PureComponent<Props<T>, State> {
     _instanceProps: any = initInstanceProps(this.props, this);
     _containerRef: ?HTMLDivElement;
-    _prerenderOverscanRowsTimeoutID: TimeoutID | null = null;
     _clearStyleCacheTimeoutID: TimeoutID | null = null;
 
     static defaultProps = {
       itemData: undefined,
       layout: 'vertical',
-      maxNumPrerenderRows: DEFAULT_MAX_NUM_PRERENDER_ROWS,
+      overscanCount: DEFAULT_OVERSCAN_COUNT,
     };
 
     state: State = {
@@ -166,15 +155,11 @@ export default function createListComponent({
       const scrollOffset =
         typeof initialScrollOffset === 'number' ? initialScrollOffset : 0;
 
-      const [startIndex, stopIndex] = this._getRangeToRender(scrollOffset);
-
       this.state = {
         instance: this,
         scrollDirection: 'forward',
         scrollOffset,
         scrollUpdateWasRequested: typeof initialScrollOffset === 'number',
-        startIndex,
-        stopIndex,
       };
     }
 
@@ -194,22 +179,13 @@ export default function createListComponent({
         if (prevState.scrollOffset === scrollOffset) {
           return null;
         }
-
-        const [startIndex, stopIndex] = this._getRangeToRender(scrollOffset);
-
-        const isSubset =
-          startIndex >= prevState.startIndex &&
-          stopIndex <= prevState.stopIndex;
-
         return {
           scrollDirection:
             prevState.scrollOffset < scrollOffset ? 'forward' : 'backward',
           scrollOffset,
           scrollUpdateWasRequested: true,
-          startIndex: isSubset ? prevState.startIndex : startIndex,
-          stopIndex: isSubset ? prevState.stopIndex : stopIndex,
         };
-      });
+      }, this._resetIsScrollingDebounced);
     }
 
     scrollToItem(index: number, align: ScrollToAlign = 'auto'): void {
@@ -238,9 +214,6 @@ export default function createListComponent({
     }
 
     componentWillUnmount() {
-      if (this._prerenderOverscanRowsTimeoutID !== null) {
-        cancelTimeout(this._prerenderOverscanRowsTimeoutID);
-      }
       if (this._clearStyleCacheTimeoutID !== null) {
         cancelTimeout(this._clearStyleCacheTimeoutID);
       }
@@ -256,11 +229,13 @@ export default function createListComponent({
         itemKey = defaultItemKey,
         style,
       } = this.props;
-      const { scrollOffset, startIndex, stopIndex } = this.state;
 
-      const [visibleStartIndex, visibleStopIndex] = this._getRangeToRender(
-        scrollOffset
-      );
+      const [
+        startIndex,
+        stopIndex,
+        visibleStartIndex,
+        visibleStopIndex,
+      ] = this._getRangeToRender();
 
       const items = [];
 
@@ -294,7 +269,7 @@ export default function createListComponent({
     }
 
     _commitHook() {
-      const { layout, itemCount, prerenderMode } = this.props;
+      const { layout, itemCount } = this.props;
       const { scrollOffset, scrollUpdateWasRequested } = this.state;
 
       if (scrollUpdateWasRequested && this._containerRef != null) {
@@ -315,25 +290,24 @@ export default function createListComponent({
       // This enables us to cache during the most perfrormance sensitive times (when scrolling)
       // while also preventing the cache from growing unbounded.
       this._clearStyleCacheDebounced();
-
-      // Schedule an update to pre-render rows at idle priority.
-      // This will make the list more responsive to subsequent scrolling.
-      if (typeof runWithPriority === 'function') {
-        if (prerenderMode === 'idle') {
-          this._prerenderOverscanRows();
-        } else if (prerenderMode === 'idle+debounce') {
-          this._prerenderOverscanRowsDebounced();
-        }
-      }
     }
 
     _callOnItemsRendered: (
+      overscanStartIndex: number,
+      overscanStopIndex: number,
       visibleStartIndex: number,
       visibleStopIndex: number
     ) => void;
     _callOnItemsRendered = memoizeOne(
-      (visibleStartIndex: number, visibleStopIndex: number) =>
+      (
+        overscanStartIndex: number,
+        overscanStopIndex: number,
+        visibleStartIndex: number,
+        visibleStopIndex: number
+      ) =>
         ((this.props.onItemsRendered: any): onItemsRenderedCallback)({
+          overscanStartIndex,
+          overscanStopIndex,
           visibleStartIndex,
           visibleStopIndex,
         })
@@ -342,12 +316,19 @@ export default function createListComponent({
     _callPropsCallbacks() {
       if (typeof this.props.onItemsRendered === 'function') {
         const { itemCount } = this.props;
-        const { scrollOffset } = this.state;
         if (itemCount > 0) {
-          const [visibleStartIndex, visibleStopIndex] = this._getRangeToRender(
-            scrollOffset
+          const [
+            overscanStartIndex,
+            overscanStopIndex,
+            visibleStartIndex,
+            visibleStopIndex,
+          ] = this._getRangeToRender();
+          this._callOnItemsRendered(
+            overscanStartIndex,
+            overscanStopIndex,
+            visibleStartIndex,
+            visibleStopIndex
           );
-          this._callOnItemsRendered(visibleStartIndex, visibleStopIndex);
         }
       }
     }
@@ -392,11 +373,12 @@ export default function createListComponent({
     _getItemStyleCache: (_: any, __: any, ___: any) => ItemStyleCache;
     _getItemStyleCache = memoizeOne((_: any, __: any, ___: any) => ({}));
 
-    _getRangeToRender(scrollOffset: number): [number, number] {
-      const { itemCount } = this.props;
+    _getRangeToRender(): [number, number, number, number] {
+      const { itemCount, overscanCount } = this.props;
+      const { scrollOffset } = this.state;
 
       if (itemCount === 0) {
-        return [0, 0];
+        return [0, 0, 0, 0];
       }
 
       const startIndex = getStartIndexForOffset(
@@ -412,8 +394,10 @@ export default function createListComponent({
       );
 
       return [
-        Math.max(0, startIndex - 1),
-        Math.max(0, Math.min(itemCount - 1, stopIndex + 1)),
+        Math.max(0, startIndex - overscanCount),
+        Math.max(0, Math.min(itemCount - 1, stopIndex + overscanCount)),
+        startIndex,
+        stopIndex,
       ];
     }
 
@@ -449,55 +433,6 @@ export default function createListComponent({
 
       // Clear style cache after state update has been committed.
       this._getItemStyleCache(-1, null);
-    };
-
-    _prerenderOverscanRowsDebounced() {
-      if (this._prerenderOverscanRowsTimeoutID !== null) {
-        cancelTimeout(this._prerenderOverscanRowsTimeoutID);
-      }
-
-      this._prerenderOverscanRowsTimeoutID = requestTimeout(
-        this._prerenderOverscanRows,
-        DEBOUNCE_INTERVAL
-      );
-    }
-
-    _prerenderOverscanRows = () => {
-      this._prerenderOverscanRowsTimeoutID = null;
-
-      runWithPriority(IdlePriority, () => {
-        this.setState(prevState => {
-          const { itemCount, maxNumPrerenderRows } = this.props;
-
-          const [startIndex, stopIndex] = this._getRangeToRender(
-            prevState.scrollOffset
-          );
-
-          const numRowsPerViewport = stopIndex - startIndex;
-          const numPrerenderRows = Math.min(
-            numRowsPerViewport,
-            maxNumPrerenderRows
-          );
-
-          const nextStartIndex = Math.max(0, startIndex - numPrerenderRows);
-          const nextStopIndex = Math.min(
-            itemCount - 1,
-            stopIndex + numPrerenderRows
-          );
-
-          if (
-            prevState.startIndex === nextStartIndex &&
-            prevState.stopIndex === nextStopIndex
-          ) {
-            return null;
-          }
-
-          return {
-            startIndex: nextStartIndex,
-            stopIndex: nextStopIndex,
-          };
-        });
-      });
     };
   };
 }

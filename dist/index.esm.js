@@ -3,7 +3,6 @@ import _assertThisInitialized from '@babel/runtime/helpers/esm/assertThisInitial
 import _inheritsLoose from '@babel/runtime/helpers/esm/inheritsLoose';
 import memoizeOne from 'memoize-one';
 import { createElement, PureComponent } from 'react';
-import scheduler from 'scheduler';
 import _objectWithoutPropertiesLoose from '@babel/runtime/helpers/esm/objectWithoutPropertiesLoose';
 
 // Animation frame based implementation of setTimeout.
@@ -34,11 +33,8 @@ function requestTimeout(callback, delay) {
   return timeoutID;
 }
 
-var IdlePriority = scheduler.unstable_IdlePriority,
-    runWithPriority = scheduler.unstable_runWithPriority;
-var DEFAULT_MAX_NUM_PRERENDER_ROWS = 20;
+var DEFAULT_OVERSCAN_COUNT = 5;
 var DEBOUNCE_INTERVAL = 100;
-var OVERSCAN_COUNT = 1;
 
 var defaultItemKey = function defaultItemKey(index, data) {
   return index;
@@ -68,7 +64,6 @@ function createListComponent(_ref) {
       _this = _PureComponent.call(this, props) || this;
       _this._instanceProps = initInstanceProps(_this.props, _assertThisInitialized(_this));
       _this._containerRef = void 0;
-      _this._prerenderOverscanRowsTimeoutID = null;
       _this._clearStyleCacheTimeoutID = null;
       _this.state = {
         instance: _assertThisInitialized(_this),
@@ -77,8 +72,10 @@ function createListComponent(_ref) {
         scrollUpdateWasRequested: false
       };
       _this._callOnItemsRendered = void 0;
-      _this._callOnItemsRendered = memoizeOne(function (visibleStartIndex, visibleStopIndex) {
+      _this._callOnItemsRendered = memoizeOne(function (overscanStartIndex, overscanStopIndex, visibleStartIndex, visibleStopIndex) {
         return _this.props.onItemsRendered({
+          overscanStartIndex: overscanStartIndex,
+          overscanStopIndex: overscanStopIndex,
           visibleStartIndex: visibleStartIndex,
           visibleStopIndex: visibleStopIndex
         });
@@ -136,49 +133,13 @@ function createListComponent(_ref) {
         _this._getItemStyleCache(-1, null);
       };
 
-      _this._prerenderOverscanRows = function () {
-        _this._prerenderOverscanRowsTimeoutID = null;
-        runWithPriority(IdlePriority, function () {
-          _this.setState(function (prevState) {
-            var _this$props2 = _this.props,
-                itemCount = _this$props2.itemCount,
-                maxNumPrerenderRows = _this$props2.maxNumPrerenderRows;
-
-            var _this$_getRangeToRend = _this._getRangeToRender(prevState.scrollOffset),
-                startIndex = _this$_getRangeToRend[0],
-                stopIndex = _this$_getRangeToRend[1];
-
-            var numRowsPerViewport = stopIndex - startIndex;
-            var numPrerenderRows = Math.min(numRowsPerViewport, maxNumPrerenderRows);
-            var nextStartIndex = Math.max(0, startIndex - numPrerenderRows);
-            var nextStopIndex = Math.min(itemCount - 1, stopIndex + numPrerenderRows);
-
-            if (prevState.startIndex === nextStartIndex && prevState.stopIndex === nextStopIndex) {
-              return null;
-            }
-
-            return {
-              startIndex: nextStartIndex,
-              stopIndex: nextStopIndex
-            };
-          });
-        });
-      };
-
       var initialScrollOffset = props.initialScrollOffset;
       var scrollOffset = typeof initialScrollOffset === 'number' ? initialScrollOffset : 0;
-
-      var _this$_getRangeToRend2 = _this._getRangeToRender(scrollOffset),
-          _startIndex = _this$_getRangeToRend2[0],
-          _stopIndex = _this$_getRangeToRend2[1];
-
       _this.state = {
         instance: _assertThisInitialized(_this),
         scrollDirection: 'forward',
         scrollOffset: scrollOffset,
-        scrollUpdateWasRequested: typeof initialScrollOffset === 'number',
-        startIndex: _startIndex,
-        stopIndex: _stopIndex
+        scrollUpdateWasRequested: typeof initialScrollOffset === 'number'
       };
       return _this;
     }
@@ -192,27 +153,18 @@ function createListComponent(_ref) {
     var _proto = List.prototype;
 
     _proto.scrollTo = function scrollTo(scrollOffset) {
-      var _this2 = this;
-
       scrollOffset = Math.max(0, scrollOffset);
       this.setState(function (prevState) {
         if (prevState.scrollOffset === scrollOffset) {
           return null;
         }
 
-        var _this2$_getRangeToRen = _this2._getRangeToRender(scrollOffset),
-            startIndex = _this2$_getRangeToRen[0],
-            stopIndex = _this2$_getRangeToRen[1];
-
-        var isSubset = startIndex >= prevState.startIndex && stopIndex <= prevState.stopIndex;
         return {
           scrollDirection: prevState.scrollOffset < scrollOffset ? 'forward' : 'backward',
           scrollOffset: scrollOffset,
-          scrollUpdateWasRequested: true,
-          startIndex: isSubset ? prevState.startIndex : startIndex,
-          stopIndex: isSubset ? prevState.stopIndex : stopIndex
+          scrollUpdateWasRequested: true
         };
-      });
+      }, this._resetIsScrollingDebounced);
     };
 
     _proto.scrollToItem = function scrollToItem(index, align) {
@@ -235,33 +187,27 @@ function createListComponent(_ref) {
     };
 
     _proto.componentWillUnmount = function componentWillUnmount() {
-      if (this._prerenderOverscanRowsTimeoutID !== null) {
-        cancelTimeout(this._prerenderOverscanRowsTimeoutID);
-      }
-
       if (this._clearStyleCacheTimeoutID !== null) {
         cancelTimeout(this._clearStyleCacheTimeoutID);
       }
     };
 
     _proto.render = function render() {
-      var _this$props3 = this.props,
-          children = _this$props3.children,
-          className = _this$props3.className,
-          containerElementType = _this$props3.containerElementType,
-          itemCount = _this$props3.itemCount,
-          itemData = _this$props3.itemData,
-          _this$props3$itemKey = _this$props3.itemKey,
-          itemKey = _this$props3$itemKey === void 0 ? defaultItemKey : _this$props3$itemKey,
-          style = _this$props3.style;
-      var _this$state = this.state,
-          scrollOffset = _this$state.scrollOffset,
-          startIndex = _this$state.startIndex,
-          stopIndex = _this$state.stopIndex;
+      var _this$props2 = this.props,
+          children = _this$props2.children,
+          className = _this$props2.className,
+          containerElementType = _this$props2.containerElementType,
+          itemCount = _this$props2.itemCount,
+          itemData = _this$props2.itemData,
+          _this$props2$itemKey = _this$props2.itemKey,
+          itemKey = _this$props2$itemKey === void 0 ? defaultItemKey : _this$props2$itemKey,
+          style = _this$props2.style;
 
-      var _this$_getRangeToRend3 = this._getRangeToRender(scrollOffset),
-          visibleStartIndex = _this$_getRangeToRend3[0],
-          visibleStopIndex = _this$_getRangeToRend3[1];
+      var _this$_getRangeToRend = this._getRangeToRender(),
+          startIndex = _this$_getRangeToRend[0],
+          stopIndex = _this$_getRangeToRend[1],
+          visibleStartIndex = _this$_getRangeToRend[2],
+          visibleStopIndex = _this$_getRangeToRend[3];
 
       var items = [];
 
@@ -292,13 +238,12 @@ function createListComponent(_ref) {
     };
 
     _proto._commitHook = function _commitHook() {
-      var _this$props4 = this.props,
-          layout = _this$props4.layout,
-          itemCount = _this$props4.itemCount,
-          prerenderMode = _this$props4.prerenderMode;
-      var _this$state2 = this.state,
-          scrollOffset = _this$state2.scrollOffset,
-          scrollUpdateWasRequested = _this$state2.scrollUpdateWasRequested;
+      var _this$props3 = this.props,
+          layout = _this$props3.layout,
+          itemCount = _this$props3.itemCount;
+      var _this$state = this.state,
+          scrollOffset = _this$state.scrollOffset,
+          scrollUpdateWasRequested = _this$state.scrollUpdateWasRequested;
 
       if (scrollUpdateWasRequested && this._containerRef != null) {
         var containerRef = this._containerRef;
@@ -317,30 +262,21 @@ function createListComponent(_ref) {
       // while also preventing the cache from growing unbounded.
 
 
-      this._clearStyleCacheDebounced(); // Schedule an update to pre-render rows at idle priority.
-      // This will make the list more responsive to subsequent scrolling.
-
-
-      if (typeof runWithPriority === 'function') {
-        if (prerenderMode === 'idle') {
-          this._prerenderOverscanRows();
-        } else if (prerenderMode === 'idle+debounce') {
-          this._prerenderOverscanRowsDebounced();
-        }
-      }
+      this._clearStyleCacheDebounced();
     };
 
     _proto._callPropsCallbacks = function _callPropsCallbacks() {
       if (typeof this.props.onItemsRendered === 'function') {
         var itemCount = this.props.itemCount;
-        var _scrollOffset = this.state.scrollOffset;
 
         if (itemCount > 0) {
-          var _this$_getRangeToRend4 = this._getRangeToRender(_scrollOffset),
-              _visibleStartIndex = _this$_getRangeToRend4[0],
-              _visibleStopIndex = _this$_getRangeToRend4[1];
+          var _this$_getRangeToRend2 = this._getRangeToRender(),
+              _overscanStartIndex = _this$_getRangeToRend2[0],
+              _overscanStopIndex = _this$_getRangeToRend2[1],
+              _visibleStartIndex = _this$_getRangeToRend2[2],
+              _visibleStopIndex = _this$_getRangeToRend2[3];
 
-          this._callOnItemsRendered(_visibleStartIndex, _visibleStopIndex);
+          this._callOnItemsRendered(_overscanStartIndex, _overscanStopIndex, _visibleStartIndex, _visibleStopIndex);
         }
       }
     } // Lazily create and cache item styles while scrolling,
@@ -349,16 +285,19 @@ function createListComponent(_ref) {
     // So that List can clear cached styles and force item re-render if necessary.
     ;
 
-    _proto._getRangeToRender = function _getRangeToRender(scrollOffset) {
-      var itemCount = this.props.itemCount;
+    _proto._getRangeToRender = function _getRangeToRender() {
+      var _this$props4 = this.props,
+          itemCount = _this$props4.itemCount,
+          overscanCount = _this$props4.overscanCount;
+      var scrollOffset = this.state.scrollOffset;
 
       if (itemCount === 0) {
-        return [0, 0];
+        return [0, 0, 0, 0];
       }
 
       var startIndex = getStartIndexForOffset(this.props, scrollOffset, this._instanceProps);
       var stopIndex = getStopIndexForStartIndex(this.props, startIndex, scrollOffset, this._instanceProps);
-      return [Math.max(0, startIndex - OVERSCAN_COUNT), Math.max(0, Math.min(itemCount - 1, stopIndex + OVERSCAN_COUNT))];
+      return [Math.max(0, startIndex - overscanCount), Math.max(0, Math.min(itemCount - 1, stopIndex + overscanCount)), startIndex, stopIndex];
     };
 
     _proto._clearStyleCacheDebounced = function _clearStyleCacheDebounced() {
@@ -369,19 +308,11 @@ function createListComponent(_ref) {
       this._clearStyleCacheTimeoutID = requestTimeout(this._clearStyleCache, DEBOUNCE_INTERVAL);
     };
 
-    _proto._prerenderOverscanRowsDebounced = function _prerenderOverscanRowsDebounced() {
-      if (this._prerenderOverscanRowsTimeoutID !== null) {
-        cancelTimeout(this._prerenderOverscanRowsTimeoutID);
-      }
-
-      this._prerenderOverscanRowsTimeoutID = requestTimeout(this._prerenderOverscanRows, DEBOUNCE_INTERVAL);
-    };
-
     return List;
   }(PureComponent), _class.defaultProps = {
     itemData: undefined,
     layout: 'vertical',
-    maxNumPrerenderRows: DEFAULT_MAX_NUM_PRERENDER_ROWS
+    overscanCount: DEFAULT_OVERSCAN_COUNT
   }, _temp;
 } // NOTE: I considered further wrapping individual items with a pure ListItem component.
 // This would avoid ever calling the render function for the same index more than once,
